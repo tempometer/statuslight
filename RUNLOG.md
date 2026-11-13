@@ -5,7 +5,7 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 
 | Run | Issue | Branch | PR | Tests | CI | Wall clock | Human input |
 |-----|-------|--------|-----|-------|----|------------|-------------|
-| 1 | [#1](https://github.com/tempometer/statuslight/issues/1) MVP: YAML → HTML board | `issue-1-mvp-html-board` | [#2](https://github.com/tempometer/statuslight/pull/2) | 19/19 local + CI | ✅ green, 21 s | ≈5 min (issue → green CI) | wrote the issue; review + merge |
+| 1 | [#1](https://github.com/tempometer/statuslight/issues/1) MVP: YAML → HTML board | `issue-1-mvp-html-board` | [#2](https://github.com/tempometer/statuslight/pull/2) | 33/33 (CI) | ✅ green (3 runs) | ≈5 min to green CI; ≈2 h with 2 review rounds | wrote issue; 2 review rounds; merge approval |
 
 ## Run 1 — 2026-11-13, issue #1 (MVP)
 
@@ -43,4 +43,6 @@ execution (branch, PR, CI), the timings, and what the human actually did.
   (usage note for `-`-prefixed values; `(empty)` label and target-path naming
   in write diagnostics — 33 tests now), 2 filed as follow-up issues
   (human-readable unknown-key error; symlink/hardlink same-file detection).
-- **Merge**: pending (final polish pushed; see below).
+- **Merge**: **squash-merged as 5ceac9b at 22:10 UTC** (issue #1 auto-closed),
+  authorized by the human re-review. Follow-ups filed: #3 (human-readable
+  unknown-key error), #4 (symlink/hardlink same-file detection).
