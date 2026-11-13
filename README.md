@@ -13,9 +13,30 @@ This repository doubles as a **live demo of an agent software factory**:
 > Honest by design: all feature code in this repository is written by AI agents.
 > Humans own the requirements, the review, and the merge button.
 
+## Quickstart
+
+    dotnet run --project src/StatusLight -- --input examples/deploy.yml --output board.html
+
+Input format ([examples/deploy.yml](examples/deploy.yml)):
+
+```yaml
+title: Deploy health
+items:
+  - name: API
+    state: green        # green | yellow | red (case-insensitive)
+    note: v2.4.1 live   # optional
+```
+
+Any schema violation, unknown key (typos included), unreadable file or
+unwritable output produces a one-line `stderr` message and exit code 1 —
+never a stack trace. The output is written via a temp file + rename, so a
+failed write never destroys a previously good board.
+
 ## Status
 
-Bootstrap in progress — see [issue #1](https://github.com/tempometer/statuslight/issues/1) for the MVP slice.
+MVP delivered in [PR #2](https://github.com/tempometer/statuslight/pull/2) — the first
+factory run: issue → agent implementation with tests → CI-gated PR (see
+[RUNLOG.md](RUNLOG.md)). Further features arrive as issues.
 
 ## License
 

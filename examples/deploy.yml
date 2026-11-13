@@ -1,0 +1,10 @@
+title: Deploy health
+items:
+  - name: API
+    state: green
+    note: v2.4.1 live
+  - name: Worker
+    state: yellow
+    note: queue lag 4m
+  - name: Billing sync
+    state: red
