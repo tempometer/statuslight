@@ -5,7 +5,7 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 
 | Run | Issue | Branch | PR | Tests | CI | Wall clock | Human input |
 |-----|-------|--------|-----|-------|----|------------|-------------|
-| 1 | [#1](https://github.com/tempometer/statuslight/issues/1) MVP: YAML → HTML board | `issue-1-mvp-html-board` | [#2](https://github.com/tempometer/statuslight/pull/2) | 19/19 local | see run details | ≈15 min (issue → PR open) | wrote the issue; review + merge |
+| 1 | [#1](https://github.com/tempometer/statuslight/issues/1) MVP: YAML → HTML board | `issue-1-mvp-html-board` | [#2](https://github.com/tempometer/statuslight/pull/2) | 19/19 local + CI | ✅ green, 21 s | ≈5 min (issue → green CI) | wrote the issue; review + merge |
 
 ## Run 1 — 2026-11-13, issue #1 (MVP)
 
@@ -22,5 +22,9 @@ execution (branch, PR, CI), the timings, and what the human actually did.
   input, this log.
 - **Notes**: SDK 10 creates `.slnx` (new XML solution format) instead of
   `.sln`; kept as the modern default, CI pins .NET SDK 10.0.x.
-- **Local verification before push**: `dotnet test` — all green.
-- **CI result / merge**: recorded in the follow-up commit after the PR run.
+- **Local verification before push**: `dotnet test` — all green (19/19).
+- **CI result**: [run 43498806775](https://github.com/tempometer/statuslight/actions/runs/43498806775) —
+  build + test **green in 21 s** (first-ever CI run, includes restore).
+- **Timeline (UTC)**: issue ~20:03 → run start 20:04:24 → implementation pushed 20:08 →
+  CI green ~20:09. **Issue → green CI ≈ 5 minutes.**
+- **Merge**: pending human review.
