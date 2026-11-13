@@ -27,4 +27,15 @@ execution (branch, PR, CI), the timings, and what the human actually did.
   build + test **green in 21 s** (first-ever CI run, includes restore).
 - **Timeline (UTC)**: issue ~20:03 → run start 20:04:24 → implementation pushed 20:08 →
   CI green ~20:09. **Issue → green CI ≈ 5 minutes.**
-- **Merge**: pending human review.
+- **Review round** (same day): human review in PR #2 — **10 inline comments**
+  (I/O exception-filter gaps on both sides, flag-without-value and flag-like
+  values, silently dropped unknown YAML keys, multi-document input accepted,
+  no same-path guard / non-atomic write, state conveyed by colour alone,
+  missing viewport meta + collapsed multi-line notes, redundant filters,
+  no tests for `Main`, stale README status). **All 10 fixed** in the review-fix
+  commit: strict schema + document count, broad I/O catches, value-aware arg
+  parsing, same-path rejection, temp-file+rename write, text state labels,
+  viewport + `pre-line` notes, README updated; suite 19 → **32 tests**
+  (CLI-level tests for `Main` added). Reviewer failure scenarios re-run
+  end-to-end — all produce one-line stderr + exit 1.
+- **Merge**: pending human re-review.

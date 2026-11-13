@@ -27,12 +27,16 @@ items:
     note: v2.4.1 live   # optional
 ```
 
-Any schema violation or unreadable file produces a one-line `stderr` message
-and exit code 1 — never a stack trace.
+Any schema violation, unknown key (typos included), unreadable file or
+unwritable output produces a one-line `stderr` message and exit code 1 —
+never a stack trace. The output is written via a temp file + rename, so a
+failed write never destroys a previously good board.
 
 ## Status
 
-Bootstrap in progress — see [issue #1](https://github.com/tempometer/statuslight/issues/1) for the MVP slice.
+MVP delivered in [PR #2](https://github.com/tempometer/statuslight/pull/2) — the first
+factory run: issue → agent implementation with tests → CI-gated PR (see
+[RUNLOG.md](RUNLOG.md)). Further features arrive as issues.
 
 ## License
 

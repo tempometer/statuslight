@@ -50,7 +50,7 @@ public sealed class RendererTests
     }
 
     [Fact]
-    public void Render_ChipClassPerState()
+    public void Render_StateShownAsTextAndColor()
     {
         var board = new Board("T", new List<BoardItem>
         {
@@ -61,9 +61,34 @@ public sealed class RendererTests
 
         var html = Renderer.Render(board, GeneratedAt);
 
-        Assert.Contains("chip-green", html);
-        Assert.Contains("chip-yellow", html);
-        Assert.Contains("chip-red", html);
+        // colour dot for sighted users, text label for colour-blind / screen readers
+        Assert.Contains("class=\"dot dot-green\"", html);
+        Assert.Contains("class=\"dot dot-yellow\"", html);
+        Assert.Contains("class=\"dot dot-red\"", html);
+        Assert.Contains("<span class=\"state st-green\">green</span>", html);
+        Assert.Contains("<span class=\"state st-yellow\">yellow</span>", html);
+        Assert.Contains("<span class=\"state st-red\">red</span>", html);
+    }
+
+    [Fact]
+    public void Render_HasViewportMetaTag()
+    {
+        var board = new Board("T", [new BoardItem("A", BoardState.Green)]);
+
+        var html = Renderer.Render(board, GeneratedAt);
+
+        Assert.Contains("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">", html);
+    }
+
+    [Fact]
+    public void Render_MultiLineNoteKeepsLineBreaks()
+    {
+        var board = new Board("T", [new BoardItem("A", BoardState.Green, "line one\nline two")]);
+
+        var html = Renderer.Render(board, GeneratedAt);
+
+        Assert.Contains("line one\nline two", html);
+        Assert.Contains("white-space: pre-line", html);
     }
 
     [Fact]

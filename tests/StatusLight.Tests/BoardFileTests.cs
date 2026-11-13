@@ -168,13 +168,48 @@ public sealed class BoardFileTests : IDisposable
     }
 
     [Fact]
+    public void Load_UnknownKey_RejectedNamesTheKey()
+    {
+        var path = WriteYaml("""
+            title: T
+            items:
+              - name: A
+                state: green
+                notes: queue lag 4m
+            """);
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("notes", ex.Message);
+    }
+
+    [Fact]
+    public void Load_MultipleDocuments_Rejected()
+    {
+        var path = WriteYaml("""
+            title: A
+            items:
+              - {name: X, state: green}
+            ---
+            title: B
+            items:
+              - {name: Y, state: red}
+            """);
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("single YAML document", ex.Message);
+        Assert.Contains("2", ex.Message);
+    }
+
+    [Fact]
     public void Load_MalformedYaml_RejectedNotLeaked()
     {
         var path = WriteYaml("title: [unclosed");
 
         var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
 
-        Assert.Contains("cannot parse YAML", ex.Message);
+        Assert.Contains("invalid content", ex.Message);
     }
 
     [Fact]

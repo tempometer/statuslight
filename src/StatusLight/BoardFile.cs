@@ -1,4 +1,5 @@
 using YamlDotNet.Core;
+using YamlDotNet.RepresentationModel;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -12,7 +13,6 @@ public static class BoardFile
 {
     private static readonly IDeserializer Deserializer = new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance)
-        .IgnoreUnmatchedProperties()
         .Build();
 
     public static Board Load(string path)
@@ -22,10 +22,21 @@ public static class BoardFile
         {
             text = File.ReadAllText(path);
         }
-        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException
-                                    or IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is not OutOfMemoryException)
         {
             throw new BoardFileException(path, $"cannot read file: {ex.Message}");
+        }
+
+        var documentCount = CountDocuments(path, text);
+        if (documentCount == 0)
+        {
+            throw new BoardFileException(path, "file is empty or contains no YAML document");
+        }
+
+        if (documentCount > 1)
+        {
+            throw new BoardFileException(
+                path, $"expected a single YAML document, found {documentCount}");
         }
 
         Schema? schema;
@@ -35,12 +46,12 @@ public static class BoardFile
         }
         catch (YamlException ex)
         {
-            throw new BoardFileException(path, $"cannot parse YAML at line {ex.Start.Line}: {ex.Message}");
+            throw new BoardFileException(path, $"invalid content at line {ex.Start.Line}: {ex.Message}");
         }
 
         if (schema is null)
         {
-            throw new BoardFileException(path, "file is empty or contains no YAML document");
+            throw new BoardFileException(path, "file contains no YAML document");
         }
 
         var title = schema.Title?.Trim();
@@ -76,6 +87,20 @@ public static class BoardFile
         }
 
         return new Board(title!, parsed);
+    }
+
+    private static int CountDocuments(string path, string text)
+    {
+        try
+        {
+            var stream = new YamlStream();
+            stream.Load(new StringReader(text));
+            return stream.Documents.Count;
+        }
+        catch (YamlException ex)
+        {
+            throw new BoardFileException(path, $"invalid content at line {ex.Start.Line}: {ex.Message}");
+        }
     }
 
     private static bool TryParseState(string? value, out BoardState state)
