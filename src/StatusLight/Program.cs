@@ -58,7 +58,7 @@ public static class Program
         }
         catch (BoardFileException ex)
         {
-            Console.Error.WriteLine($"statuslight: {ex.SourcePath}: {ex.Message}");
+            Console.Error.WriteLine($"statuslight: {DisplayPath(ex.SourcePath)}: {ex.Message}");
             return 1;
         }
 
@@ -75,7 +75,7 @@ public static class Program
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
         {
-            Console.Error.WriteLine($"statuslight: {output}: cannot write file: {ex.Message}");
+            Console.Error.WriteLine($"statuslight: {DisplayPath(output)}: cannot write file: {ex.Message}");
             return 1;
         }
 
@@ -84,6 +84,9 @@ public static class Program
 
     private static bool IsFlagLike(string value) =>
         value.Length > 1 && value[0] == '-';
+
+    private static string DisplayPath(string? path) =>
+        string.IsNullOrWhiteSpace(path) ? "(empty)" : path;
 
     private static bool IsSamePath(string left, string right) =>
         string.Equals(Path.GetFullPath(left), Path.GetFullPath(right),
@@ -120,7 +123,7 @@ public static class Program
                 // best-effort cleanup; the original error is what matters
             }
 
-            throw new IOException(ex.Message, ex);
+            throw new IOException(ex.Message.Replace(temp, fullPath), ex);
         }
     }
 
@@ -133,5 +136,8 @@ public static class Program
           --input,  -i <path>   YAML status file (required)
           --output, -o <path>   HTML output file (required)
           --help,   -h          show this help
+
+        Values starting with '-' (a file named '-out.html') must be passed
+        as './-out.html'.
         """;
 }

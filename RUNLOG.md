@@ -38,4 +38,9 @@ execution (branch, PR, CI), the timings, and what the human actually did.
   viewport + `pre-line` notes, README updated; suite 19 → **32 tests**
   (CLI-level tests for `Main` added). Reviewer failure scenarios re-run
   end-to-end — all produce one-line stderr + exit 1.
-- **Merge**: pending human re-review.
+- **Re-review** (human, 22:04 UTC): all 10 comments confirmed fixed ("good to
+  merge"); 4 non-blocking nits left. Disposition: 2 nits fixed pre-merge
+  (usage note for `-`-prefixed values; `(empty)` label and target-path naming
+  in write diagnostics — 33 tests now), 2 filed as follow-up issues
+  (human-readable unknown-key error; symlink/hardlink same-file detection).
+- **Merge**: pending (final polish pushed; see below).

@@ -37,6 +37,7 @@ public sealed class ProgramTests : IDisposable
 
         Assert.Equal(0, exit);
         Assert.Contains("Usage:", _stdout.ToString());
+        Assert.Contains("./-out.html", _stdout.ToString());
     }
 
     [Fact]
@@ -119,6 +120,21 @@ public sealed class ProgramTests : IDisposable
         Assert.Equal(1, exit);
         var stderr = _stderr.ToString();
         Assert.Contains("cannot write file", stderr);
+        Assert.Contains("(empty)", stderr);
+        Assert.DoesNotContain("Exception", stderr);
+    }
+
+    [Fact]
+    public void Main_MissingOutputDirectory_Exits1_NamesTargetNotTemp()
+    {
+        var output = Path.Combine(_dir, "no-such-dir", "board.html");
+
+        var exit = Program.Main(["-i", ValidYamlPath(), "-o", output]);
+
+        Assert.Equal(1, exit);
+        var stderr = _stderr.ToString();
+        Assert.Contains("no-such-dir", stderr);
+        Assert.DoesNotContain(".tmp", stderr);
         Assert.DoesNotContain("Exception", stderr);
     }
 
