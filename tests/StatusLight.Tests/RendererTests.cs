@@ -130,6 +130,31 @@ public sealed class RendererTests
         Assert.DoesNotContain("https://", html);
     }
 
+    [Fact]
+    public void Render_LegacyStockRow_IsUnchanged()
+    {
+        var board = new Board("T", [new BoardItem("A", States.Green)]);
+
+        var html = Renderer.Render(board, GeneratedAt);
+
+        // v0.1 output: decorative dot carries aria-hidden, colours come from classes alone
+        Assert.Contains("<span class=\"dot dot-green\" aria-hidden=\"true\"></span>", html);
+        Assert.DoesNotContain("style=\"background:", html);
+        Assert.DoesNotContain("style=\"color:", html);
+    }
+
+    [Fact]
+    public void Render_LegacyCustomState_UsesLabelAndInlineColour()
+    {
+        var parked = new StateInfo("gray", "parked", 0, "#8b5cf6", 3);
+        var board = new Board("T", [new BoardItem("A", parked)]);
+
+        var html = Renderer.Render(board, GeneratedAt);
+
+        Assert.Contains("<span class=\"dot dot-gray\" style=\"background:#8b5cf6\" aria-hidden=\"true\"></span>", html);
+        Assert.Contains("<span class=\"state st-gray\" style=\"color:#8b5cf6\">parked</span>", html);
+    }
+
     private static int CountOccurrences(string haystack, string needle)
     {
         var count = 0;

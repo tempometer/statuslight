@@ -181,6 +181,70 @@ public sealed class BoardFileTests : IDisposable
     }
 
     [Fact]
+    public void Load_UnknownKey_RejectedNamesTheKey()
+    {
+        var path = WriteYaml("""
+            title: T
+            items:
+              - name: A
+                state: green
+                notes: queue lag 4m
+            """);
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("notes", ex.Message);
+    }
+
+    [Fact]
+    public void Load_MultipleDocuments_Rejected()
+    {
+        var path = WriteYaml("""
+            title: A
+            items:
+              - {name: X, state: green}
+            ---
+            title: B
+            items:
+              - {name: Y, state: red}
+            """);
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("single YAML document", ex.Message);
+        Assert.Contains("2", ex.Message);
+    }
+
+    [Fact]
+    public void Load_LegacyRejectsV2TopLevelKeys()
+    {
+        var withQueue = WriteYaml("""
+            title: T
+            items:
+              - {name: A, state: green}
+            queue:
+              - { name: SSO }
+            """);
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(withQueue));
+
+        Assert.Contains("legacy flat schema", ex.Message);
+
+        var withTag = WriteYaml("""
+            title: T
+            items:
+              - name: A
+                state: green
+                tag: RADAR
+                note: x
+            """);
+
+        var ex2 = Assert.Throws<BoardFileException>(() => BoardFile.Load(withTag));
+
+        Assert.Contains("items[0].tag", ex2.Message);
+    }
+
+    [Fact]
     public void Load_EmptyDocument_Rejected()
     {
         var path = WriteYaml("");

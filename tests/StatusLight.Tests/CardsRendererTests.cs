@@ -162,6 +162,16 @@ public sealed class CardsRendererTests
     }
 
     [Fact]
+    public void Render_UpdatedEmitsUtcIsoWithDisplay()
+    {
+        var html = Renderer.Render(Board(Section(updated: "2026-11-18 09:12")), GeneratedAt);
+
+        // exact instant in data-upd, human display in data-disp: every viewer sees the same age
+        Assert.Contains("data-upd=\"2026-11-18T09:12:00Z\"", html);
+        Assert.Contains("data-disp=\"2026-11-18 09:12 UTC\"", html);
+    }
+
+    [Fact]
     public void Render_UpdatedDrivesAgeScript()
     {
         var board = new Board
@@ -172,11 +182,46 @@ public sealed class CardsRendererTests
 
         var html = Renderer.Render(board, GeneratedAt);
 
-        Assert.Contains("data-upd=\"2026-11-18 09:12\"", html);
+        Assert.Contains("data-upd=\"2026-11-18T09:12:00Z\"", html);
         Assert.Contains("data-stale-after=\"24\"", html);
         Assert.Contains("data-stale-after=\"72\"", html);
         Assert.Contains(".updated.stale", html); // stale styling exists
+        Assert.Contains("future timestamp", html); // future dates are flagged, not clamped
         Assert.Contains("querySelectorAll('.updated[data-upd]')", html); // age script wired
+    }
+
+    [Fact]
+    public void Render_FactItemWithNameLeadIn()
+    {
+        var only = Renderer.Render(
+            Board(Section(items: [new BoardItem("OnlyName")])), GeneratedAt);
+        Assert.Contains("<span class=\"iname\">OnlyName</span>", only);
+
+        var both = Renderer.Render(
+            Board(Section(items: [new BoardItem("SEPA", Note: "maintenance window")])), GeneratedAt);
+        Assert.Contains("<span class=\"iname\">SEPA</span>", both);
+        Assert.Contains("<span class=\"txt\">maintenance window</span>", both);
+    }
+
+    [Fact]
+    public void Render_StatefulItemKeepsTagChip()
+    {
+        var html = Renderer.Render(
+            Board(Section(items: [new BoardItem("API", States.Red, "5xx", "TAGX")])), GeneratedAt);
+
+        Assert.Contains("<span class=\"tag\">TAGX</span>", html);
+    }
+
+    [Fact]
+    public void Render_ThemeAuto_DarkBlockHasRootSelectorAndBalancedBraces()
+    {
+        var html = Renderer.Render(
+            new Board { Title = "T", Theme = BoardTheme.Auto, Sections = [Section()] }, GeneratedAt);
+
+        Assert.Contains("@media (prefers-color-scheme: dark){:root{", html);
+        var opens = html.Count(c => c == '{');
+        var closes = html.Count(c => c == '}');
+        Assert.Equal(opens, closes); // no stray brace dropping the next rule
     }
 
     [Fact]

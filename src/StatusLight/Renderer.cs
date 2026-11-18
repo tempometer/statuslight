@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 
@@ -43,10 +44,10 @@ public static class Renderer
                 : $"<span class=\"note\">{Escape(item.Note)}</span>";
             var dot = item.State is null
                 ? string.Empty
-                : $"<span class=\"dot dot-{States.CssSafe(item.State.Key)}\" style=\"background:{item.State.Color}\"></span>";
+                : $"<span class=\"dot dot-{States.CssSafe(item.State.Key)}\"{DotStyle(item.State)} aria-hidden=\"true\"></span>";
             var state = item.State is null
                 ? string.Empty
-                : $"<span class=\"state st-{States.CssSafe(item.State.Key)}\">{Escape(item.State.Key)}</span>";
+                : $"<span class=\"state st-{States.CssSafe(item.State.Key)}\"{PillStyle(item.State)}>{Escape(item.State.Label)}</span>";
             sb.AppendLine(
                 $"  <li>{dot}<span class=\"name\">{Escape(item.Name ?? "")}</span>{note}{state}</li>");
         }
@@ -162,8 +163,9 @@ public static class Renderer
         }
 
         sb.AppendLine(
-            $"      <div class=\"updated\" data-upd=\"{Escape(section.Updated ?? "")}\" " +
-            $"data-stale-after=\"{section.StaleAfterHours}\">updated {Escape(section.Updated ?? "")}</div>");
+            $"      <div class=\"updated\" data-upd=\"{Escape(IsoFromUpdated(section.Updated))}\" " +
+            $"data-disp=\"{Escape(section.Updated ?? "")} UTC\" " +
+            $"data-stale-after=\"{section.StaleAfterHours}\">updated {Escape(section.Updated ?? "")} UTC</div>");
         sb.AppendLine("    </div>");
         sb.AppendLine("  </section>");
         return sb.ToString();
@@ -174,16 +176,22 @@ public static class Renderer
         if (item.State is not null)
         {
             var note = item.Note is null ? "" : $" <span class=\"inote\">{Escape(item.Note)}</span>";
+            var tag = item.Tag is null
+                ? string.Empty
+                : $" <span class=\"tag\">{Escape(item.Tag)}</span>";
             return
                 $"      <div class=\"row\"><span class=\"dot-sm\" style=\"background:{item.State.Color}\"></span>" +
-                $"<span class=\"iname\">{Escape(item.Name ?? item.State.Label)}</span>{note}" +
+                $"<span class=\"iname\">{Escape(item.Name ?? item.State.Label)}</span>{note}{tag}" +
                 $"<span class=\"istate\" style=\"color:{item.State.Color}\">{Escape(item.State.Label)}</span></div>";
         }
 
-        var tag = item.Tag is null
+        var factTag = item.Tag is null
             ? string.Empty
             : $"<span class=\"tag\">{Escape(item.Tag)}</span>";
-        return $"      <div class=\"fact\">{tag}<span class=\"txt\">{Escape(item.Note)}</span></div>";
+        var name = item.Name is null
+            ? string.Empty
+            : $"<span class=\"iname\">{Escape(item.Name)}</span>";
+        return $"      <div class=\"fact\">{factTag}{name}<span class=\"txt\">{Escape(item.Note)}</span></div>";
     }
 
     private static void AppendChips<T>(
@@ -205,6 +213,40 @@ public static class Renderer
     }
 
     private static string Escape(string value) => WebUtility.HtmlEncode(value);
+
+    /// <summary>
+    /// 'updated' is authored in UTC; emit an exact ISO-8601 instant so every viewer
+    /// computes the same age regardless of their timezone.
+    /// </summary>
+    private static string IsoFromUpdated(string? updated)
+    {
+        if (updated is not null &&
+            DateTime.TryParseExact(updated, "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var utc))
+        {
+            return utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
+        }
+
+        return updated ?? "";
+    }
+
+    private static string StockHex(string key) => key.Trim().ToLowerInvariant() switch
+    {
+        "green" => "#34c759",
+        "yellow" => "#ffcc00",
+        "red" => "#ff3b30",
+        "gray" => "#9ca3af",
+        "closed" => "#38bdf8",
+        _ => ""
+    };
+
+    // v0.1 output stays byte-identical for stock states: the classes already carry
+    // their colours; an inline style appears only when a custom colour is declared.
+    private static string DotStyle(StateInfo s) =>
+        StockHex(s.Key) == s.Color ? "" : $" style=\"background:{s.Color}\"";
+
+    private static string PillStyle(StateInfo s) =>
+        StockHex(s.Key) == s.Color ? "" : $" style=\"color:{s.Color}\"";
 
     // ---- styles ----
 
@@ -239,17 +281,13 @@ public static class Renderer
 
     private static string CardsStyles(BoardTheme theme)
     {
-        var light = """
-            :root{--bg:#f5f5f7;--card:#ffffff;--text:#1d1d1f;--dim:#6e6e73;--line:#e5e5ea;--accent:#0071e3}
-            """;
-        var dark = """
-            :root{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--dim:#94a3b8;--line:#334155;--accent:#7dd3fc}
-            """;
+        const string lightVars = "--bg:#f5f5f7;--card:#ffffff;--text:#1d1d1f;--dim:#6e6e73;--line:#e5e5ea;--accent:#0071e3";
+        const string darkVars = "--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--dim:#94a3b8;--line:#334155;--accent:#7dd3fc";
         var mode = theme switch
         {
-            BoardTheme.Light => light,
-            BoardTheme.Dark => dark,
-            _ => light + "\n@media (prefers-color-scheme: dark){\n" + dark[6..] + "\n}"
+            BoardTheme.Light => ":root{" + lightVars + "}",
+            BoardTheme.Dark => ":root{" + darkVars + "}",
+            _ => ":root{" + lightVars + "}\n@media (prefers-color-scheme: dark){:root{" + darkVars + "}}"
         };
         return mode + "\n" + CardBaseStyles;
     }
@@ -300,13 +338,20 @@ public static class Renderer
     private const string AgeScript = """
         (function () {
           document.querySelectorAll('.updated[data-upd]').forEach(function (el) {
-            var raw = el.getAttribute('data-upd').trim();
-            var t = new Date(raw.length > 10 ? raw.replace(' ', 'T') + ':00' : raw + 'T00:00:00');
+            var iso = el.getAttribute('data-upd').trim();
+            var disp = el.getAttribute('data-disp') || iso;
+            var t = new Date(iso);
             if (isNaN(t)) return;
-            var h = Math.max(0, Math.round((Date.now() - t.getTime()) / 3600000));
+            var diff = Date.now() - t.getTime();
+            if (diff < 0) {
+              el.classList.add('stale');
+              el.textContent = 'updated ' + disp + ' · ⚠ future timestamp';
+              return;
+            }
+            var h = Math.round(diff / 3600000);
             var lim = parseInt(el.getAttribute('data-stale-after') || '48', 10);
             if (!(lim > 0)) lim = 48;
-            el.textContent = 'updated ' + raw + ' · ' + h + 'h ago';
+            el.textContent = 'updated ' + disp + ' · ' + h + 'h ago';
             if (h > lim) {
               el.classList.add('stale');
               el.textContent = '⚠ ' + el.textContent + ' — stale';

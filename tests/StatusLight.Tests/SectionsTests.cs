@@ -24,6 +24,7 @@ public sealed class SectionsTests : IDisposable
           yellow: { label: "needs decision", rank: 1 }
           red:    { label: "broken", rank: 2 }
           gray:   { label: "parked" }
+          closed: { label: "done, with verdict" }
         sections:
         """ + "\n" + body + "\n";
 
@@ -446,6 +447,105 @@ public sealed class SectionsTests : IDisposable
         Assert.Equal("on plan", items[0].State.Label); // label comes from the custom vocabulary
         Assert.Equal("v2.4.1", items[0].Note);
         Assert.Equal(new BoardItem(null, null, "3 hits today", "RADAR"), items[1]);
+    }
+
+    [Fact]
+    public void Load_CapitalizedStockKeys_KeepStockRankAndColor()
+    {
+        var path = WriteYaml("""
+            board: { title: Aurora }
+            states:
+              Green: { label: ok }
+              Red:   { label: broken }
+            sections:
+              - name: S
+                updated: "2026-11-18 09:12"
+                items:
+                  - { name: A, state: Red }
+                  - { name: B, state: Green }
+            """);
+
+        var board = BoardFile.Load(path);
+
+        // Red keeps stock rank 2 and colour even with a capitalised key
+        Assert.Equal("broken", board.Sections[0].State.Label);
+        Assert.Equal(2, board.Sections[0].State.Rank);
+        Assert.Equal("#ff3b30", board.Sections[0].State.Color);
+    }
+
+    [Fact]
+    public void Load_RollupTieBreaksByDeclarationOrder()
+    {
+        var path = WriteYaml(Section("""
+            - name: Mixed
+              updated: "2026-11-18 09:12"
+              items:
+                - { name: A, state: green }
+                - { name: B, state: closed }
+            - name: Parked
+              updated: "2026-11-18 09:12"
+              items:
+                - { name: C, state: green }
+                - { name: D, state: gray }
+            """));
+
+        var board = BoardFile.Load(path);
+
+        // green, gray and closed all rank 0; declaration order (best-first) decides
+        Assert.Equal("green", board.Sections[0].State.Key);
+        Assert.Equal("green", board.Sections[1].State.Key);
+    }
+
+    [Fact]
+    public void Load_LinkSchemeAllowlist()
+    {
+        var ok = WriteYaml(Section("""
+            - name: S
+              state: green
+              updated: "2026-11-18 09:12"
+              items: [{ name: A, state: green }]
+              links:
+                - { label: web, href: "https://x.example" }
+                - { label: mail, href: "mailto:ops@example.com" }
+                - { label: rel, href: docs/x.md }
+                - { label: anchor, href: "#payments" }
+            """));
+        Assert.Equal(4, BoardFile.Load(ok).Sections[0].Links.Count);
+
+        foreach (var bad in new[] { "javascript:alert(1)", "data:text/html,x", "vbscript:x", " JavaScript:alert(1)" })
+        {
+            var path = WriteYaml(Section($"""
+                - name: S
+                  state: green
+                  updated: "2026-11-18 09:12"
+                  items:
+                    - name: A
+                      state: green
+                  links:
+                    - label: x
+                      href: "{bad}"
+                """));
+            var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+            Assert.Contains("links[0].href", ex.Message);
+        }
+    }
+
+    [Fact]
+    public void Load_UnknownKeyInSection_RejectedNamesTheKey()
+    {
+        var path = WriteYaml(Section("""
+            - name: S
+              state: green
+              updated: "2026-11-18 09:12"
+              items:
+                - name: A
+                  state: green
+                  tags: RADAR
+            """));
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("tags", ex.Message);
     }
 
     public void Dispose()

@@ -43,12 +43,17 @@ renders a card grid in the spirit of an ops traffic board:
   rollup (worst item state by rank)
 - **custom state vocabulary** — `states:` defines keys, labels, severity ranks
   and `#RRGGBB` colours: `green/yellow/red` by default, add `gray` (parked),
-  `closed` (done with verdict), or your own
+  `closed` (done with verdict), or your own. Declare states best-first: equal
+  ranks tie-break by declaration order, and the rollup takes the worst rank.
 - **facts with tags** — items without a state render as fact lines; a `tag`
   (≤16 chars) renders as a chip, for substream labels
 - **freshness as a first-class citizen** — every card carries `updated`
-  (`YYYY-MM-DD HH:MM`, date AND time); the page computes the age client-side
-  and flags `⚠ stale` past `stale_after_hours` (default 48, per-card override)
+  (`YYYY-MM-DD HH:MM`, **UTC**, date AND time); the page emits the exact UTC
+  instant so every viewer computes the same age, flags `⚠ future timestamp`
+  instead of hiding it, and `⚠ stale` past `stale_after_hours` (default 48,
+  per-card override)
+- **link safety** — `links:` hrefs must be http/https/mailto or relative;
+  `javascript:` / `data:` are rejected at load time
 - **queue & closed lanes** — parked items and finished items with verdicts,
   so nothing disappears silently
 - **theme** — `auto` (light/dark by preference), `light`, or `dark`

@@ -1,15 +1,19 @@
 namespace StatusLight;
 
-/// <summary>A resolved state: key (as written in YAML), display label, severity rank, hex color.</summary>
-public sealed record StateInfo(string Key, string Label, int Rank, string Color);
+/// <summary>
+/// A resolved state: key (as written in YAML), display label, severity rank, hex color,
+/// and declaration order (the tie-break for rollups among equal ranks — declare
+/// states best-first).
+/// </summary>
+public sealed record StateInfo(string Key, string Label, int Rank, string Color, int Order = 0);
 
 public static class States
 {
-    public static readonly StateInfo Green = new("green", "green", 0, "#34c759");
-    public static readonly StateInfo Yellow = new("yellow", "yellow", 1, "#ffcc00");
-    public static readonly StateInfo Red = new("red", "red", 2, "#ff3b30");
-    public static readonly StateInfo Gray = new("gray", "gray", 0, "#9ca3af");
-    public static readonly StateInfo Closed = new("closed", "closed", 0, "#38bdf8");
+    public static readonly StateInfo Green = new("green", "green", 0, "#34c759", 0);
+    public static readonly StateInfo Yellow = new("yellow", "yellow", 1, "#ffcc00", 1);
+    public static readonly StateInfo Red = new("red", "red", 2, "#ff3b30", 2);
+    public static readonly StateInfo Gray = new("gray", "gray", 0, "#9ca3af", 3);
+    public static readonly StateInfo Closed = new("closed", "closed", 0, "#38bdf8", 4);
 
     /// <summary>v0.1 vocabulary: the default unless a custom <c>states:</c> block is given.</summary>
     public static readonly IReadOnlyDictionary<string, StateInfo> Defaults =
@@ -37,6 +41,7 @@ public static class States
             .Select(i => i.State)
             .Where(s => s is not null)
             .OrderByDescending(s => s!.Rank)
+            .ThenBy(s => s!.Order)
             .ThenBy(s => s!.Key, StringComparer.Ordinal)
             .FirstOrDefault();
 }

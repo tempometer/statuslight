@@ -73,16 +73,19 @@ public static class BoardFile
         }
 
         var vocabulary = new Dictionary<string, StateInfo>(StringComparer.Ordinal);
-        foreach (var (key, s) in states)
+        var order = 0;
+        foreach (var (rawKey, s) in states)
         {
-            if (string.IsNullOrWhiteSpace(key))
+            if (string.IsNullOrWhiteSpace(rawKey))
             {
                 throw new BoardFileException(path, "states: keys must be non-empty");
             }
 
-            var label = string.IsNullOrWhiteSpace(s?.Label) ? key.Trim() : s.Label!.Trim();
-            var rank = s?.Rank ?? StockRank(key);
-            var color = string.IsNullOrWhiteSpace(s?.Color) ? StockColor(key) : s!.Color!.Trim();
+            var key = rawKey.Trim();
+            var label = string.IsNullOrWhiteSpace(s?.Label) ? key : s.Label!.Trim();
+            var stockKey = key.ToLowerInvariant();
+            var rank = s?.Rank ?? StockRank(stockKey);
+            var color = string.IsNullOrWhiteSpace(s?.Color) ? StockColor(stockKey) : s!.Color!.Trim();
             if (color.Length != 7 || color[0] != '#' ||
                 color.Skip(1).Any(c => !"0123456789abcdefABCDEF".Contains(c)))
             {
@@ -90,7 +93,7 @@ public static class BoardFile
                     path, $"states.{key}.color: must be '#RRGGBB', got '{color}'");
             }
 
-            vocabulary[key.Trim()] = new StateInfo(key.Trim(), label, rank, color.ToLowerInvariant());
+            vocabulary[key] = new StateInfo(key, label, rank, color.ToLowerInvariant(), order++);
         }
 
         return vocabulary;
@@ -340,10 +343,33 @@ public static class BoardFile
                     path, $"{where}[{j}].href: required and must be a non-empty string");
             }
 
+            if (!HasAllowedScheme(href))
+            {
+                throw new BoardFileException(
+                    path, $"{where}[{j}].href: only http, https, mailto or relative URLs are " +
+                    $"allowed, got '{href}'");
+            }
+
             parsed.Add(new Link(label, href));
         }
 
         return parsed;
+    }
+
+    /// <summary>
+    /// Relative URLs and http/https/mailto only: a ':' before any '/', '?' or '#'
+    /// marks a scheme, and anything but the allowlist (e.g. javascript:, data:)
+    /// is rejected at load time.
+    /// </summary>
+    private static bool HasAllowedScheme(string href)
+    {
+        var i = href.IndexOfAny([':', '/', '?', '#']);
+        if (i < 0 || href[i] != ':')
+        {
+            return true;
+        }
+
+        return href[..i].ToLowerInvariant() is "http" or "https" or "mailto";
     }
 
     private static IReadOnlyList<QueueEntry> ParseQueue(string path, List<QueueSchema>? queue)
@@ -436,6 +462,13 @@ public static class BoardFile
     private static Board LoadLegacyBoard(
         string path, Schema schema, IReadOnlyDictionary<string, StateInfo> vocabulary)
     {
+        if (schema.Board is not null || schema.Queue is not null || schema.Closed is not null)
+        {
+            throw new BoardFileException(
+                path, "legacy flat schema (title + items): 'board', 'queue' and 'closed' are " +
+                "not allowed here — use the v2 board schema (board.title + sections)");
+        }
+
         var title = schema.Title?.Trim();
         if (string.IsNullOrEmpty(title))
         {
@@ -457,6 +490,13 @@ public static class BoardFile
             {
                 throw new BoardFileException(
                     path, $"items[{i}].name: required and must be a non-empty string");
+            }
+
+            if (!string.IsNullOrWhiteSpace(item?.Tag))
+            {
+                throw new BoardFileException(
+                    path, $"items[{i}].tag: not supported in the legacy flat schema (facts with " +
+                    "tags need a v2 section board)");
             }
 
             var state = Resolve(path, vocabulary, item?.State?.Trim(), $"items[{i}].state");

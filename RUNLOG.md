@@ -71,3 +71,31 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 - **CI result**: run 44389734524 — build + test green in 21 s.
 - **Timeline (UTC)**: issue 20:13 → pushed 20:19 → CI green ~20:20. **Issue → green CI ≈ 7 minutes.**
 - **Merge**: pending human review.
+
+### Run 2 — review round (2026-11-18, same day)
+
+- **Human review**: 10 inline comments (2 blockers first). All 10 verified
+  against the code and fixed in the review-fix commit:
+  1. `theme: auto` emitted broken CSS (bare vars in `@media` + stray `}`) —
+     palette blocks rebuilt with proper `:root` selectors; test now asserts
+     the media-block selector and balanced braces
+  2. link schemes unvalidated — allowlist at load (http/https/mailto or
+     relative); `javascript:`/`data:`/`vbscript:` rejected with a named error
+  3. fact items dropped `name` — rendered as a bold lead-in; name-only facts OK
+  4. `state`+`tag` items lost the tag — chip now rendered in the traffic row
+  5. `updated` had no timezone — documented as UTC; renderer emits the exact
+     ISO instant (`data-upd`) + display string (`data-disp`); future
+     timestamps flagged `⚠` instead of clamped to `0h ago`
+  6. stock rank/colour lookup was case-sensitive while `Resolve` was not —
+     normalized
+  7. rollup ties broke alphabetically with a crowded rank 0 — `StateInfo.Order`
+     added; equal ranks tie-break by declaration order (best-first vocabulary)
+  8. legacy flat boards silently ignored v2 keys — `board`/`queue`/`closed`
+     top-level and per-item `tag` now rejected in the legacy path
+  9. legacy list output had drifted (aria-hidden dropped, inline styles added,
+     key instead of label) — restored byte-parity for stock states; custom
+     states get label + inline colour only when their colour differs
+  10. two run-1 review tests had been dropped in the suite rewrite — restored
+      (`unknown key`, `multiple documents`) + a section-board variant
+- Tests **69 → 82/82** locally; live checks: fixed `@media ... {:root{` CSS,
+  ISO-Z `data-upd`, `javascript:` link rejected with exit 1.
