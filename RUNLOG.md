@@ -6,7 +6,7 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 | Run | Issue | Branch | PR | Tests | CI | Wall clock | Human input |
 |-----|-------|--------|-----|-------|----|------------|-------------|
 | 1 | [#1](https://github.com/tempometer/statuslight/issues/1) MVP: YAML → HTML board | `issue-1-mvp-html-board` | [#2](https://github.com/tempometer/statuslight/pull/2) | 33/33 (CI) | ✅ green (3 runs) | ≈5 min to green CI; ≈2 h with 2 review rounds | wrote issue; 2 review rounds; merge approval |
-| 2 | [#5](https://github.com/tempometer/statuslight/issues/5) Boards v2 | `issue-5-boards-v2` | [#6](https://github.com/tempometer/statuslight/pull/6) | 69/69 local | see below | see below | issue approved in chat ("ран A одразу"); review pending |
+| 2 | [#5](https://github.com/tempometer/statuslight/issues/5) Boards v2 | `issue-5-boards-v2` | [#6](https://github.com/tempometer/statuslight/pull/6) | 69/69 local + CI | ✅ green, 21 s | ≈7 min (issue → green CI) | issue approved in chat ("ран A одразу"); review pending |
 
 ## Run 1 — 2026-11-13, issue #1 (MVP)
 
@@ -68,4 +68,6 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 - **Local verification before push**: 69/69 tests; live render of
   `examples/traffic-board.yml` — rollup correct (mixed cards → worst state),
   queue/closed lanes present, `data-upd`/`data-stale-after` wired.
-- **CI result / merge**: recorded below after the PR run.
+- **CI result**: run 44389734524 — build + test green in 21 s.
+- **Timeline (UTC)**: issue 20:13 → pushed 20:19 → CI green ~20:20. **Issue → green CI ≈ 7 minutes.**
+- **Merge**: pending human review.
