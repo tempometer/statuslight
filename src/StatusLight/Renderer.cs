@@ -7,10 +7,19 @@ namespace StatusLight;
 /// Renders a <see cref="Board"/> as a single self-contained HTML page
 /// (inline CSS, no external assets). All text is HTML-escaped, and every state
 /// is conveyed by text as well as colour (colour-blind / screen-reader safe).
+/// Legacy flat boards render the original list layout; section boards render
+/// a card grid with client-side age and staleness badges.
 /// </summary>
 public static class Renderer
 {
-    public static string Render(Board board, DateTimeOffset generatedAtUtc)
+    public static string Render(Board board, DateTimeOffset generatedAtUtc) =>
+        board.IsLegacyList
+            ? RenderList(board, generatedAtUtc)
+            : RenderCards(board, generatedAtUtc);
+
+    // ---- v0.1 list layout (output unchanged) ----
+
+    private static string RenderList(Board board, DateTimeOffset generatedAtUtc)
     {
         var sb = new StringBuilder();
         sb.AppendLine("<!DOCTYPE html>");
@@ -20,22 +29,26 @@ public static class Renderer
         sb.AppendLine("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
         sb.AppendLine($"<title>{Escape(board.Title)}</title>");
         sb.AppendLine("<style>");
-        sb.Append(Styles);
+        sb.Append(ListStyles);
         sb.AppendLine("</style>");
         sb.AppendLine("</head>");
         sb.AppendLine("<body>");
         sb.AppendLine("<main class=\"board\">");
         sb.AppendLine($"<h1>{Escape(board.Title)}</h1>");
         sb.AppendLine("<ul>");
-        foreach (var item in board.Items)
+        foreach (var item in board.Sections[0].Items)
         {
             var note = item.Note is null
                 ? string.Empty
                 : $"<span class=\"note\">{Escape(item.Note)}</span>";
+            var dot = item.State is null
+                ? string.Empty
+                : $"<span class=\"dot dot-{States.CssSafe(item.State.Key)}\" style=\"background:{item.State.Color}\"></span>";
+            var state = item.State is null
+                ? string.Empty
+                : $"<span class=\"state st-{States.CssSafe(item.State.Key)}\">{Escape(item.State.Key)}</span>";
             sb.AppendLine(
-                $"  <li><span class=\"dot dot-{CssClass(item.State)}\" aria-hidden=\"true\"></span>" +
-                $"<span class=\"name\">{Escape(item.Name)}</span>{note}" +
-                $"<span class=\"state st-{CssClass(item.State)}\">{CssClass(item.State)}</span></li>");
+                $"  <li>{dot}<span class=\"name\">{Escape(item.Name ?? "")}</span>{note}{state}</li>");
         }
 
         sb.AppendLine("</ul>");
@@ -46,17 +59,156 @@ public static class Renderer
         return sb.ToString();
     }
 
-    private static string CssClass(BoardState state) => state switch
+    // ---- v2 cards layout ----
+
+    private static string RenderCards(Board board, DateTimeOffset generatedAtUtc)
     {
-        BoardState.Green => "green",
-        BoardState.Yellow => "yellow",
-        BoardState.Red => "red",
-        _ => throw new ArgumentOutOfRangeException(nameof(state), state, null)
-    };
+        var sb = new StringBuilder();
+        sb.AppendLine("<!DOCTYPE html>");
+        sb.AppendLine("<html lang=\"en\">");
+        sb.AppendLine("<head>");
+        sb.AppendLine("<meta charset=\"utf-8\">");
+        sb.AppendLine("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">");
+        sb.AppendLine($"<title>{Escape(board.Title)}</title>");
+        sb.AppendLine("<style>");
+        sb.Append(CardsStyles(board.Theme));
+        sb.AppendLine("</style>");
+        sb.AppendLine("</head>");
+        sb.AppendLine("<body>");
+        sb.AppendLine("<main class=\"board\">");
+        sb.AppendLine($"<h1>{Escape(board.Title)}</h1>");
+        var sub = board.Description is null
+            ? $"Generated: {generatedAtUtc.UtcDateTime:yyyy-MM-dd'T'HH:mm:ss'Z'}"
+            : $"{Escape(board.Description)} · Generated: {generatedAtUtc.UtcDateTime:yyyy-MM-dd'T'HH:mm:ss'Z'}";
+        sb.AppendLine($"<div class=\"sub\">{sub}</div>");
+        sb.AppendLine("<div class=\"grid\">");
+        foreach (var section in board.Sections)
+        {
+            sb.Append(RenderCard(section));
+        }
+
+        sb.AppendLine("</div>");
+        AppendChips(sb, "Queue", board.Queue,
+            q => $"<span class=\"chip\"><b>{Escape(q.Name)}</b>" +
+                 (q.Note is null ? "" : $" <span class=\"note\">— {Escape(q.Note)}</span>") + "</span>",
+            "chips");
+        AppendChips(sb, "Closed", board.Closed,
+            c => $"<span class=\"chip\"><b>✅ {Escape(c.Name)}</b> " +
+                 $"<span class=\"note\">— {Escape(c.Verdict)} ({Escape(c.Date)})</span></span>",
+            "chips closed");
+        if (board.Footer is not null)
+        {
+            sb.AppendLine($"<footer>{Escape(board.Footer)}</footer>");
+        }
+
+        sb.AppendLine("</main>");
+        sb.AppendLine($"<script>{AgeScript}</script>");
+        sb.AppendLine("</body>");
+        sb.AppendLine("</html>");
+        return sb.ToString();
+    }
+
+    private static string RenderCard(Section section)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(
+            $"  <section class=\"card\" style=\"--c:{section.State.Color}\">");
+        sb.AppendLine(
+            $"    <div class=\"head\"><span class=\"dot\"></span><span class=\"name\">{Escape(section.Name)}</span>" +
+            $"<span class=\"slabel\">{Escape(section.State.Label)}</span></div>");
+        if (section.About is not null)
+        {
+            var head = section.About;
+            var idx = head.IndexOf(" — ", StringComparison.Ordinal);
+            var about = idx > 0
+                ? $"<b>{Escape(head[..idx])}</b>{Escape(head[idx..])}"
+                : Escape(head);
+            sb.AppendLine($"    <div class=\"about\">{about}</div>");
+        }
+
+        sb.AppendLine("    <div class=\"body\">");
+        foreach (var item in section.Items)
+        {
+            sb.AppendLine(RenderItem(item));
+        }
+
+        sb.AppendLine("    </div>");
+        if (section.WaitingOn is not null)
+        {
+            sb.AppendLine(
+                $"    <div class=\"waiting\"><span class=\"lbl\">waiting on</span> {Escape(section.WaitingOn)}</div>");
+        }
+
+        sb.AppendLine("    <div class=\"foot\">");
+        if (section.Next.Count == 1)
+        {
+            sb.AppendLine(
+                $"      <div class=\"nxt-one\"><span class=\"lbl\">next</span> {Escape(section.Next[0])}</div>");
+        }
+        else if (section.Next.Count > 1)
+        {
+            sb.AppendLine("      <span class=\"lbl\">next steps</span>");
+            foreach (var step in section.Next)
+            {
+                sb.AppendLine($"      <div class=\"nxt\">{Escape(step)}</div>");
+            }
+        }
+
+        if (section.Links.Count > 0)
+        {
+            var chips = string.Join(null, section.Links.Select(l =>
+                $"<a href=\"{Escape(l.Href)}\">{Escape(l.Label)}</a>"));
+            sb.AppendLine($"      <div class=\"links\">{chips}</div>");
+        }
+
+        sb.AppendLine(
+            $"      <div class=\"updated\" data-upd=\"{Escape(section.Updated ?? "")}\" " +
+            $"data-stale-after=\"{section.StaleAfterHours}\">updated {Escape(section.Updated ?? "")}</div>");
+        sb.AppendLine("    </div>");
+        sb.AppendLine("  </section>");
+        return sb.ToString();
+    }
+
+    private static string RenderItem(BoardItem item)
+    {
+        if (item.State is not null)
+        {
+            var note = item.Note is null ? "" : $" <span class=\"inote\">{Escape(item.Note)}</span>";
+            return
+                $"      <div class=\"row\"><span class=\"dot-sm\" style=\"background:{item.State.Color}\"></span>" +
+                $"<span class=\"iname\">{Escape(item.Name ?? item.State.Label)}</span>{note}" +
+                $"<span class=\"istate\" style=\"color:{item.State.Color}\">{Escape(item.State.Label)}</span></div>";
+        }
+
+        var tag = item.Tag is null
+            ? string.Empty
+            : $"<span class=\"tag\">{Escape(item.Tag)}</span>";
+        return $"      <div class=\"fact\">{tag}<span class=\"txt\">{Escape(item.Note)}</span></div>";
+    }
+
+    private static void AppendChips<T>(
+        StringBuilder sb, string heading, IReadOnlyList<T> entries, Func<T, string> render, string cssClass)
+    {
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        sb.AppendLine($"<h2>{heading}</h2>");
+        sb.AppendLine($"<div class=\"{cssClass}\">");
+        foreach (var entry in entries)
+        {
+            sb.AppendLine($"  {render(entry)}");
+        }
+
+        sb.AppendLine("</div>");
+    }
 
     private static string Escape(string value) => WebUtility.HtmlEncode(value);
 
-    private const string Styles = """
+    // ---- styles ----
+
+    private const string ListStyles = """
         :root { color-scheme: light dark; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: system-ui, sans-serif; background: #f5f5f7; color: #1d1d1f; }
@@ -83,5 +235,83 @@ public static class Renderer
           .st-yellow { color: #ffde59; background: rgba(255,204,0,.2); }
           .st-red { color: #ff8a80; background: rgba(255,59,48,.2); }
         }
+        """;
+
+    private static string CardsStyles(BoardTheme theme)
+    {
+        var light = """
+            :root{--bg:#f5f5f7;--card:#ffffff;--text:#1d1d1f;--dim:#6e6e73;--line:#e5e5ea;--accent:#0071e3}
+            """;
+        var dark = """
+            :root{--bg:#0f172a;--card:#1e293b;--text:#e2e8f0;--dim:#94a3b8;--line:#334155;--accent:#7dd3fc}
+            """;
+        var mode = theme switch
+        {
+            BoardTheme.Light => light,
+            BoardTheme.Dark => dark,
+            _ => light + "\n@media (prefers-color-scheme: dark){\n" + dark[6..] + "\n}"
+        };
+        return mode + "\n" + CardBaseStyles;
+    }
+
+    private const string CardBaseStyles = """
+        *{box-sizing:border-box}
+        body{margin:0;font:15px/1.55 system-ui,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);padding:24px 16px}
+        .board{max-width:76rem;margin:0 auto}
+        h1{font-size:1.4rem;margin:0 0 4px}
+        .sub{color:var(--dim);font-size:.85rem;margin-bottom:18px}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(24rem,1fr));gap:14px}
+        .card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c,#888);border-radius:10px;padding:14px 16px}
+        .head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
+        .dot{width:12px;height:12px;border-radius:50%;background:var(--c,#888);flex:none}
+        .name{font-weight:600;font-size:1.05rem}
+        .slabel{color:var(--dim);font-size:.8rem;margin-left:auto;padding-left:6px;text-align:right}
+        .about{color:var(--dim);font-size:.85rem;margin:0 0 9px;padding:0 0 9px;border-bottom:1px dashed var(--line);white-space:pre-line}
+        .about b{color:var(--text)}
+        .body{flex:1 1 auto;margin-top:2px;display:flex;flex-direction:column;gap:8px}
+        .row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+        .dot-sm{width:9px;height:9px;border-radius:50%;flex:none}
+        .iname{font-weight:600}
+        .inote{color:var(--dim)}
+        .istate{margin-left:auto;font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+        .fact{display:flex;gap:9px;align-items:flex-start}
+        .tag{flex:none;border:1px solid var(--line);color:var(--accent);font-size:.68rem;font-weight:700;letter-spacing:.4px;text-transform:uppercase;border-radius:5px;padding:2px 8px;margin-top:2px;white-space:nowrap}
+        .txt{flex:1;min-width:0;overflow-wrap:anywhere;white-space:pre-line;color:var(--dim)}
+        .waiting{margin-top:8px;color:var(--dim);font-size:.85rem}
+        .foot{flex:none;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
+        .lbl{display:block;color:var(--dim);font-size:.72rem;text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+        .nxt,.nxt-one{margin:3px 0 0;padding-left:15px;position:relative}
+        .nxt::before,.nxt-one::before{content:'→';position:absolute;left:0;color:var(--dim);font-size:.8rem}
+        .links{margin-top:9px;display:flex;flex-wrap:wrap;gap:7px}
+        .links a{background:var(--bg);border:1px solid var(--line);color:var(--accent);padding:3px 10px;border-radius:999px;font-size:.8rem;text-decoration:none}
+        .updated{color:var(--dim);font-size:.75rem;margin-top:8px}
+        .updated.stale{color:#eab308;font-weight:600}
+        h2{font-size:.95rem;margin:24px 0 10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+        .chips{display:flex;flex-wrap:wrap;gap:8px}
+        .chip{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:.85rem}
+        .chip b{color:var(--text)}
+        .chips.closed .chip{border-left:4px solid #38bdf8}
+        .note{color:var(--dim)}
+        footer{margin-top:24px;color:var(--dim);font-size:.78rem}
+        """;
+
+    // ---- client-side age & staleness ----
+
+    private const string AgeScript = """
+        (function () {
+          document.querySelectorAll('.updated[data-upd]').forEach(function (el) {
+            var raw = el.getAttribute('data-upd').trim();
+            var t = new Date(raw.length > 10 ? raw.replace(' ', 'T') + ':00' : raw + 'T00:00:00');
+            if (isNaN(t)) return;
+            var h = Math.max(0, Math.round((Date.now() - t.getTime()) / 3600000));
+            var lim = parseInt(el.getAttribute('data-stale-after') || '48', 10);
+            if (!(lim > 0)) lim = 48;
+            el.textContent = 'updated ' + raw + ' · ' + h + 'h ago';
+            if (h > lim) {
+              el.classList.add('stale');
+              el.textContent = '⚠ ' + el.textContent + ' — stale';
+            }
+          });
+        })();
         """;
 }

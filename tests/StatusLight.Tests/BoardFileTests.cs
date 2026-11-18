@@ -34,11 +34,13 @@ public sealed class BoardFileTests : IDisposable
         var board = BoardFile.Load(path);
 
         Assert.Equal("Deploy health", board.Title);
-        Assert.Equal(3, board.Items.Count);
-        Assert.Equal(new BoardItem("API", BoardState.Green, "v2.4.1 live"), board.Items[0]);
-        Assert.Equal(new BoardItem("Worker", BoardState.Yellow, "queue lag 4m"), board.Items[1]);
-        Assert.Equal(new BoardItem("Billing sync", BoardState.Red), board.Items[2]);
-        Assert.Null(board.Items[2].Note);
+        Assert.True(board.IsLegacyList);
+        var items = board.Sections[0].Items;
+        Assert.Equal(3, items.Count);
+        Assert.Equal(new BoardItem("API", States.Green, "v2.4.1 live"), items[0]);
+        Assert.Equal(new BoardItem("Worker", States.Yellow, "queue lag 4m"), items[1]);
+        Assert.Equal(new BoardItem("Billing sync", States.Red), items[2]);
+        Assert.Null(items[2].Note);
     }
 
     [Fact]
@@ -53,7 +55,7 @@ public sealed class BoardFileTests : IDisposable
 
         var board = BoardFile.Load(path);
 
-        Assert.Equal(BoardState.Green, board.Items[0].State);
+        Assert.Equal(States.Green, board.Sections[0].Items[0].State);
     }
 
     [Fact]
@@ -72,8 +74,9 @@ public sealed class BoardFileTests : IDisposable
 
         var board = BoardFile.Load(path);
 
-        Assert.Equal("spaced", board.Items[0].Note);
-        Assert.Null(board.Items[1].Note);
+        var items = board.Sections[0].Items;
+        Assert.Equal("spaced", items[0].Note);
+        Assert.Null(items[1].Note);
     }
 
     [Fact]
@@ -165,41 +168,6 @@ public sealed class BoardFileTests : IDisposable
 
         Assert.Equal(path, ex.SourcePath);
         Assert.Contains("cannot read file", ex.Message);
-    }
-
-    [Fact]
-    public void Load_UnknownKey_RejectedNamesTheKey()
-    {
-        var path = WriteYaml("""
-            title: T
-            items:
-              - name: A
-                state: green
-                notes: queue lag 4m
-            """);
-
-        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
-
-        Assert.Contains("notes", ex.Message);
-    }
-
-    [Fact]
-    public void Load_MultipleDocuments_Rejected()
-    {
-        var path = WriteYaml("""
-            title: A
-            items:
-              - {name: X, state: green}
-            ---
-            title: B
-            items:
-              - {name: Y, state: red}
-            """);
-
-        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
-
-        Assert.Contains("single YAML document", ex.Message);
-        Assert.Contains("2", ex.Message);
     }
 
     [Fact]

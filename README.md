@@ -32,6 +32,45 @@ unwritable output produces a one-line `stderr` message and exit code 1 —
 never a stack trace. The output is written via a temp file + rename, so a
 failed write never destroys a previously good board.
 
+## Boards: sections, custom states, staleness (v2)
+
+The flat list above is the minimal (v0.1) schema — it keeps working unchanged.
+The full board schema ([examples/traffic-board.yml](examples/traffic-board.yml))
+renders a card grid in the spirit of an ops traffic board:
+
+- **sections** — cards with name, "Full name — essence" subtitle, facts, next
+  steps, waiting-on, link chips; card colour is the explicit `state` or the
+  rollup (worst item state by rank)
+- **custom state vocabulary** — `states:` defines keys, labels, severity ranks
+  and `#RRGGBB` colours: `green/yellow/red` by default, add `gray` (parked),
+  `closed` (done with verdict), or your own
+- **facts with tags** — items without a state render as fact lines; a `tag`
+  (≤16 chars) renders as a chip, for substream labels
+- **freshness as a first-class citizen** — every card carries `updated`
+  (`YYYY-MM-DD HH:MM`, date AND time); the page computes the age client-side
+  and flags `⚠ stale` past `stale_after_hours` (default 48, per-card override)
+- **queue & closed lanes** — parked items and finished items with verdicts,
+  so nothing disappears silently
+- **theme** — `auto` (light/dark by preference), `light`, or `dark`
+
+```yaml
+states:
+  green:  { label: "on plan" }
+  yellow: { label: "needs decision", rank: 1 }
+  red:    { label: "broken", rank: 2 }
+sections:
+  - name: Payments
+    updated: "2026-11-18 09:12"
+    items:
+      - { name: API, state: green, note: v2.4.1 }
+      - { tag: LATENCY, note: "p99 stable at 340ms" }
+    next: [rotate keys, cut release 2.5]
+```
+
+Try it:
+
+    dotnet run --project src/StatusLight -- --input examples/traffic-board.yml --output board.html
+
 ## Status
 
 MVP delivered in [PR #2](https://github.com/tempometer/statuslight/pull/2) — the first
