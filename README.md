@@ -59,6 +59,8 @@ renders a card grid in the spirit of an ops traffic board:
 - **theme** — `auto` (light/dark by preference), `light`, or `dark`
 
 ```yaml
+board:
+  title: Aurora Platform
 states:
   green:  { label: "on plan" }
   yellow: { label: "needs decision", rank: 1 }

@@ -1,3 +1,4 @@
+using System.Globalization;
 using StatusLight;
 
 namespace StatusLight.Tests;
@@ -32,6 +33,9 @@ public sealed class CardsRendererTests
         WaitingOn = waitingOn,
         Links = links ?? [],
         Updated = updated,
+        UpdatedUtc = DateTime.ParseExact(updated, "yyyy-MM-dd HH:mm",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal),
         StaleAfterHours = staleAfter
     };
 
@@ -187,7 +191,26 @@ public sealed class CardsRendererTests
         Assert.Contains("data-stale-after=\"72\"", html);
         Assert.Contains(".updated.stale", html); // stale styling exists
         Assert.Contains("future timestamp", html); // future dates are flagged, not clamped
+        Assert.Contains("diff > lim * 3600000", html); // threshold on exact ms, not rounded hours
         Assert.Contains("querySelectorAll('.updated[data-upd]')", html); // age script wired
+    }
+
+    [Fact]
+    public void Render_GridFitsPhoneViewports()
+    {
+        var html = Renderer.Render(Board(Section()), GeneratedAt);
+
+        Assert.Contains("minmax(min(24rem,100%),1fr)", html);
+    }
+
+    [Fact]
+    public void Render_MultiLineNotesKeepBreaksEverywhere()
+    {
+        var html = Renderer.Render(
+            Board(Section(items: [new BoardItem("API", States.Red, "line one\nline two")])), GeneratedAt);
+
+        Assert.Contains(".inote{color:var(--dim);white-space:pre-line}", html);
+        Assert.Contains("line one\nline two", html);
     }
 
     [Fact]

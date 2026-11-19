@@ -228,7 +228,7 @@ public sealed class BoardFileTests : IDisposable
 
         var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(withQueue));
 
-        Assert.Contains("legacy flat schema", ex.Message);
+        Assert.Contains("not both", ex.Message);
 
         var withTag = WriteYaml("""
             title: T

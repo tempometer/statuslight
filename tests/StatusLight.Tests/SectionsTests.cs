@@ -146,7 +146,7 @@ public sealed class SectionsTests : IDisposable
         var path = WriteYaml("""
             board: { title: Aurora }
             states:
-              weird: { color: "#12345" }
+              weird: { rank: 1, color: "#12345" }
             sections:
               - name: S
                 state: weird
@@ -447,6 +447,81 @@ public sealed class SectionsTests : IDisposable
         Assert.Equal("on plan", items[0].State.Label); // label comes from the custom vocabulary
         Assert.Equal("v2.4.1", items[0].Note);
         Assert.Equal(new BoardItem(null, null, "3 hits today", "RADAR"), items[1]);
+    }
+
+    [Fact]
+    public void Load_CustomStateWithoutRank_Rejected()
+    {
+        var path = WriteYaml("""
+            board: { title: Aurora }
+            states:
+              green:   {}
+              blocked: { label: Blocked }
+            sections:
+              - name: S
+                updated: "2026-11-18 09:12"
+                items:
+                  - { name: A, state: green }
+                  - { name: B, state: blocked }
+            """);
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("states.blocked.rank", ex.Message);
+        Assert.Contains("required for non-stock", ex.Message);
+    }
+
+    [Fact]
+    public void Load_CaseVariantDuplicateStates_Rejected()
+    {
+        var path = WriteYaml("""
+            board: { title: Aurora }
+            states:
+              OK: { rank: 0 }
+              ok: { rank: 2, color: "#ff0000" }
+            sections:
+              - name: S
+                updated: "2026-11-18 09:12"
+                items: [{ name: A, state: ok }]
+            """);
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("duplicate key", ex.Message);
+        Assert.Contains("case-insensitive", ex.Message);
+    }
+
+    [Fact]
+    public void Load_V2WithEmptySections_GoodError()
+    {
+        var path = WriteYaml("""
+            board:
+              title: Aurora
+            sections:
+            """);
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("'sections' must contain at least one entry", ex.Message);
+    }
+
+    [Fact]
+    public void Load_V2RejectsLegacyTopLevelTitle()
+    {
+        var path = WriteYaml("""
+            board:
+              title: Aurora
+            title: leftover
+            sections:
+              - name: S
+                state: green
+                updated: "2026-11-18 09:12"
+                items: [{ name: A, state: green }]
+            """);
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("board.title", ex.Message);
     }
 
     [Fact]

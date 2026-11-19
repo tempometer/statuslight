@@ -59,7 +59,9 @@ public static class BoardFile
         }
 
         var vocabulary = ParseStates(path, schema.States);
-        return schema.Sections is not null
+        var isV2 = schema.Board is not null || schema.Sections is not null ||
+                   schema.Queue is not null || schema.Closed is not null;
+        return isV2
             ? LoadSectionsBoard(path, schema, vocabulary)
             : LoadLegacyBoard(path, schema, vocabulary);
     }
@@ -82,10 +84,17 @@ public static class BoardFile
             }
 
             var key = rawKey.Trim();
+            var stock = States.Stock(key);
             var label = string.IsNullOrWhiteSpace(s?.Label) ? key : s.Label!.Trim();
-            var stockKey = key.ToLowerInvariant();
-            var rank = s?.Rank ?? StockRank(stockKey);
-            var color = string.IsNullOrWhiteSpace(s?.Color) ? StockColor(stockKey) : s!.Color!.Trim();
+            var rank = s?.Rank ?? stock?.Rank;
+            if (rank is null)
+            {
+                throw new BoardFileException(
+                    path, $"states.{key}.rank: required for non-stock states " +
+                    "(stock states inherit their usual rank)");
+            }
+
+            var color = string.IsNullOrWhiteSpace(s?.Color) ? stock?.Color ?? States.FallbackColor : s!.Color!.Trim();
             if (color.Length != 7 || color[0] != '#' ||
                 color.Skip(1).Any(c => !"0123456789abcdefABCDEF".Contains(c)))
             {
@@ -93,7 +102,14 @@ public static class BoardFile
                     path, $"states.{key}.color: must be '#RRGGBB', got '{color}'");
             }
 
-            vocabulary[key] = new StateInfo(key, label, rank, color.ToLowerInvariant(), order++);
+            if (vocabulary.ContainsKey(key) ||
+                vocabulary.Keys.Any(k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new BoardFileException(
+                    path, $"states: duplicate key '{key}' (keys are case-insensitive)");
+            }
+
+            vocabulary[key] = new StateInfo(key, label, rank.Value, color.ToLowerInvariant(), order++);
         }
 
         return vocabulary;
@@ -149,7 +165,15 @@ public static class BoardFile
         if (schema.Items is not null)
         {
             throw new BoardFileException(
-                path, "use either top-level 'items' (legacy) or 'sections', not both");
+                path, "top-level 'items' belongs to the legacy flat schema and cannot " +
+                "be combined with v2 keys ('board', 'sections', 'queue', 'closed') — " +
+                "use one schema or the other, not both");
+        }
+
+        if (schema.Title is not null)
+        {
+            throw new BoardFileException(
+                path, "top-level 'title' is legacy; the v2 board schema uses 'board.title'");
         }
 
         var board = schema.Board;
@@ -209,7 +233,7 @@ public static class BoardFile
         }
 
         if (!DateTime.TryParseExact(updated, UpdatedFormat, CultureInfo.InvariantCulture,
-                DateTimeStyles.None, out _))
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var updatedUtc))
         {
             throw new BoardFileException(
                 path, $"{where}.updated: must be 'YYYY-MM-DD HH:MM' (date AND time), got '{updated}'");
@@ -254,6 +278,7 @@ public static class BoardFile
             WaitingOn = TrimOrNull(s?.WaitingOn),
             Links = ParseLinks(path, s?.Links, $"{where}.links"),
             Updated = updated,
+            UpdatedUtc = updatedUtc,
             StaleAfterHours = ttl
         };
     }

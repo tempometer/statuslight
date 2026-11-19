@@ -99,3 +99,33 @@ execution (branch, PR, CI), the timings, and what the human actually did.
       (`unknown key`, `multiple documents`) + a section-board variant
 - Tests **69 → 82/82** locally; live checks: fixed `@media ... {:root{` CSS,
   ISO-Z `data-upd`, `javascript:` link rejected with exit 1.
+
+### Run 2 — review round 2 (2026-11-19)
+
+- **Human re-review at 497515d**: all ten round-1 findings confirmed fixed,
+  "no blockers remain"; ten new, smaller findings (four marked fix-before-
+  merge). All ten fixed in the round-2 commit:
+  1. stock gray/closed rendered uncoloured in the legacy list (regression from
+     the parity fix) — inline styles now apply to everything except the v0.1
+     trio wearing stock colours; `IsPlainV01Stock` via `States.Stock`
+  2. custom states without `rank` silently tied with green — `rank` now
+     required for non-stock states
+  3. staleness compared rounded hours (up to 30 min late) — the threshold now
+     compares exact milliseconds; rounding is display-only
+  4. README v2 snippet failed to load — `board: { title: ... }` added;
+     snippet verified by loading it verbatim (exit 0)
+  5. card grid overflowed 360px phones — `minmax(min(24rem,100%),1fr)`
+  6. case-variant state keys could coexist and resolved arbitrarily —
+     case-insensitive duplicates rejected at load
+  7. schema routing keyed only on `sections` — now any v2 key (board/queue/
+     closed) routes to the v2 loader; empty `sections:` reports the right
+     error; stray legacy `title:` on a v2 board rejected
+  8. `.inote` lacked `white-space: pre-line` — multi-line notes keep breaks
+     in traffic rows
+  9. third copy of the stock colour table — `States.Stock` is the single
+     source; renderer keeps no local hex table
+  10. `Updated` re-parsed in the renderer — `Section.UpdatedUtc` (DateTime,
+      parsed once at load); renderer only formats, never parses
+- Tests **82 → 89/89** locally. Live checks (reviewer read the code, did not
+  run it): gray+stock inline in the legacy list, README snippet loads (exit 0),
+  empty `sections:` error, rank-less custom state error.

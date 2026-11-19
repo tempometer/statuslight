@@ -27,6 +27,21 @@ public static class States
     /// <summary>Color for a custom state that does not declare one.</summary>
     public const string FallbackColor = "#64748b";
 
+    /// <summary>
+    /// Stock state for a key (case-insensitive), or null. Single source of stock
+    /// ranks and colours — loaders and renderers must go through this, not their
+    /// own tables.
+    /// </summary>
+    public static StateInfo? Stock(string key) => key.Trim().ToLowerInvariant() switch
+    {
+        "green" => Green,
+        "yellow" => Yellow,
+        "red" => Red,
+        "gray" => Gray,
+        "closed" => Closed,
+        _ => null
+    };
+
     public static string CssSafe(string key)
     {
         var chars = key.Trim().ToLowerInvariant().Select(c =>
@@ -82,8 +97,11 @@ public sealed record Section
 
     public IReadOnlyList<Link> Links { get; init; } = [];
 
-    /// <summary>Required for cards; 'YYYY-MM-DD HH:MM'. Drives the client-side age/stale badge.</summary>
+    /// <summary>Required for cards; 'YYYY-MM-DD HH:MM' (UTC) — display form.</summary>
     public string? Updated { get; init; }
+
+    /// <summary>Parsed once at load (UTC); the renderer must not re-parse strings.</summary>
+    public DateTime? UpdatedUtc { get; init; }
 
     public int StaleAfterHours { get; init; } = 48;
 }

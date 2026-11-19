@@ -155,6 +155,20 @@ public sealed class RendererTests
         Assert.Contains("<span class=\"state st-gray\" style=\"color:#8b5cf6\">parked</span>", html);
     }
 
+    [Fact]
+    public void Render_LegacyGrayWithStockColour_StillInlined()
+    {
+        // gray/closed are not part of the v0.1 trio: ListStyles has no classes for
+        // them, so even their stock colours must go inline (review round 2, #1)
+        var parked = new StateInfo("gray", "parked", 0, "#9ca3af", 3);
+        var board = new Board("T", [new BoardItem("A", parked)]);
+
+        var html = Renderer.Render(board, GeneratedAt);
+
+        Assert.Contains("style=\"background:#9ca3af\"", html);
+        Assert.Contains("style=\"color:#9ca3af\"", html);
+    }
+
     private static int CountOccurrences(string haystack, string needle)
     {
         var count = 0;

@@ -44,10 +44,10 @@ public static class Renderer
                 : $"<span class=\"note\">{Escape(item.Note)}</span>";
             var dot = item.State is null
                 ? string.Empty
-                : $"<span class=\"dot dot-{States.CssSafe(item.State.Key)}\"{DotStyle(item.State)} aria-hidden=\"true\"></span>";
+                : $"<span class=\"dot dot-{States.CssSafe(item.State.Key)}\"{DotAttr(item.State)} aria-hidden=\"true\"></span>";
             var state = item.State is null
                 ? string.Empty
-                : $"<span class=\"state st-{States.CssSafe(item.State.Key)}\"{PillStyle(item.State)}>{Escape(item.State.Label)}</span>";
+                : $"<span class=\"state st-{States.CssSafe(item.State.Key)}\"{PillAttr(item.State)}>{Escape(item.State.Label)}</span>";
             sb.AppendLine(
                 $"  <li>{dot}<span class=\"name\">{Escape(item.Name ?? "")}</span>{note}{state}</li>");
         }
@@ -163,7 +163,7 @@ public static class Renderer
         }
 
         sb.AppendLine(
-            $"      <div class=\"updated\" data-upd=\"{Escape(IsoFromUpdated(section.Updated))}\" " +
+            $"      <div class=\"updated\" data-upd=\"{IsoOf(section.UpdatedUtc, section.Updated)}\" " +
             $"data-disp=\"{Escape(section.Updated ?? "")} UTC\" " +
             $"data-stale-after=\"{section.StaleAfterHours}\">updated {Escape(section.Updated ?? "")} UTC</div>");
         sb.AppendLine("    </div>");
@@ -215,38 +215,31 @@ public static class Renderer
     private static string Escape(string value) => WebUtility.HtmlEncode(value);
 
     /// <summary>
-    /// 'updated' is authored in UTC; emit an exact ISO-8601 instant so every viewer
-    /// computes the same age regardless of their timezone.
+    /// Exact ISO-8601 instant from the DateTime parsed once at load. A null
+    /// UpdatedUtc (model built by hand, never loaded) yields an empty attribute —
+    /// the age script then skips the card instead of guessing.
     /// </summary>
-    private static string IsoFromUpdated(string? updated)
-    {
-        if (updated is not null &&
-            DateTime.TryParseExact(updated, "yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var utc))
-        {
-            return utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
-        }
+    private static string IsoOf(DateTime? updatedUtc, string? raw) =>
+        updatedUtc is { } utc
+            ? utc.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture)
+            : raw ?? "";
 
-        return updated ?? "";
-    }
+    /// <summary>
+    /// True only for the v0.1 stock trio wearing its stock colour — the case where
+    /// ListStyles classes already carry everything and v0.1 output stays
+    /// byte-identical. gray/closed and custom states always get inline styles.
+    /// States.Stock is the single source; no local colour table here.
+    /// </summary>
+    private static bool IsPlainV01Stock(StateInfo s) =>
+        States.Stock(s.Key) is { } stock &&
+        stock.Key is "green" or "yellow" or "red" &&
+        stock.Color == s.Color;
 
-    private static string StockHex(string key) => key.Trim().ToLowerInvariant() switch
-    {
-        "green" => "#34c759",
-        "yellow" => "#ffcc00",
-        "red" => "#ff3b30",
-        "gray" => "#9ca3af",
-        "closed" => "#38bdf8",
-        _ => ""
-    };
+    private static string DotAttr(StateInfo s) =>
+        IsPlainV01Stock(s) ? "" : $" style=\"background:{s.Color}\"";
 
-    // v0.1 output stays byte-identical for stock states: the classes already carry
-    // their colours; an inline style appears only when a custom colour is declared.
-    private static string DotStyle(StateInfo s) =>
-        StockHex(s.Key) == s.Color ? "" : $" style=\"background:{s.Color}\"";
-
-    private static string PillStyle(StateInfo s) =>
-        StockHex(s.Key) == s.Color ? "" : $" style=\"color:{s.Color}\"";
+    private static string PillAttr(StateInfo s) =>
+        IsPlainV01Stock(s) ? "" : $" style=\"color:{s.Color}\"";
 
     // ---- styles ----
 
@@ -298,7 +291,7 @@ public static class Renderer
         .board{max-width:76rem;margin:0 auto}
         h1{font-size:1.4rem;margin:0 0 4px}
         .sub{color:var(--dim);font-size:.85rem;margin-bottom:18px}
-        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(24rem,1fr));gap:14px}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(24rem,100%),1fr));gap:14px}
         .card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c,#888);border-radius:10px;padding:14px 16px}
         .head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:7px}
         .dot{width:12px;height:12px;border-radius:50%;background:var(--c,#888);flex:none}
@@ -310,7 +303,7 @@ public static class Renderer
         .row{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
         .dot-sm{width:9px;height:9px;border-radius:50%;flex:none}
         .iname{font-weight:600}
-        .inote{color:var(--dim)}
+        .inote{color:var(--dim);white-space:pre-line}
         .istate{margin-left:auto;font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
         .fact{display:flex;gap:9px;align-items:flex-start}
         .tag{flex:none;border:1px solid var(--line);color:var(--accent);font-size:.68rem;font-weight:700;letter-spacing:.4px;text-transform:uppercase;border-radius:5px;padding:2px 8px;margin-top:2px;white-space:nowrap}
@@ -348,14 +341,15 @@ public static class Renderer
               el.textContent = 'updated ' + disp + ' · ⚠ future timestamp';
               return;
             }
-            var h = Math.round(diff / 3600000);
             var lim = parseInt(el.getAttribute('data-stale-after') || '48', 10);
             if (!(lim > 0)) lim = 48;
-            el.textContent = 'updated ' + disp + ' · ' + h + 'h ago';
-            if (h > lim) {
+            // compare exact milliseconds: rounding is for display only
+            if (diff > lim * 3600000) {
               el.classList.add('stale');
-              el.textContent = '⚠ ' + el.textContent + ' — stale';
+              el.textContent = '⚠ updated ' + disp + ' · ' + Math.round(diff / 3600000) + 'h ago — stale';
+              return;
             }
+            el.textContent = 'updated ' + disp + ' · ' + Math.round(diff / 3600000) + 'h ago';
           });
         })();
         """;
