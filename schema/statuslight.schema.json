@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/tempometer/statuslight/main/schema/statuslight.schema.json",
+  "title": "StatusLight board",
+  "description": "Contract for statuslight board files (YAML or JSON). Schema checks are necessary, not sufficient: the loaders additionally enforce semantic rules that cannot be expressed here - 'rank' is required for non-stock states, state keys are case-insensitive (duplicates rejected), a 'tag' requires a 'note', a section needs 'state' or an item with a state, top-level legacy 'items' cannot be combined with v2 keys, and link hrefs allow only http/https/mailto or relative URLs. 'updated' is authored in UTC.",
+  "oneOf": [
+    { "$ref": "#/$defs/v2Board" },
+    { "$ref": "#/$defs/legacyBoard" }
+  ],
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "stringOrStringList": {
+      "anyOf": [
+        { "$ref": "#/$defs/nonEmptyString" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/nonEmptyString" } }
+      ]
+    },
+    "v2Board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["board", "sections"],
+      "properties": {
+        "board": { "$ref": "#/$defs/boardMeta" },
+        "states": { "$ref": "#/$defs/states" },
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/section" }
+        },
+        "queue": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/queueEntry" }
+        },
+        "closed": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/closedEntry" }
+        }
+      }
+    },
+    "boardMeta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title"],
+      "properties": {
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "type": "string" },
+        "footer": { "type": "string" },
+        "stale_after_hours": { "type": "integer", "minimum": 1 },
+        "theme": { "enum": ["auto", "light", "dark"] }
+      }
+    },
+    "states": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "$ref": "#/$defs/nonEmptyString" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "label": { "type": "string" },
+          "rank": { "type": "integer" },
+          "color": { "type": "string", "pattern": "^#[0-9a-fA-F]{6}$" }
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "updated", "items"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "about": { "type": "string" },
+        "state": { "$ref": "#/$defs/nonEmptyString" },
+        "updated": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$"
+        },
+        "stale_after_hours": { "type": "integer", "minimum": 1 },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/sectionItem" }
+        },
+        "next": { "$ref": "#/$defs/stringOrStringList" },
+        "waiting_on": { "type": "string" },
+        "links": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/link" }
+        }
+      }
+    },
+    "sectionItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "state": { "$ref": "#/$defs/nonEmptyString" },
+        "note": { "type": "string" },
+        "tag": { "type": "string", "minLength": 1, "maxLength": 16 }
+      },
+      "anyOf": [
+        { "required": ["name"] },
+        { "required": ["note"] }
+      ]
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "href"],
+      "properties": {
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "href": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "queueEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "note": { "type": "string" }
+      }
+    },
+    "closedEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "verdict", "date"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "verdict": { "$ref": "#/$defs/nonEmptyString" },
+        "date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        }
+      }
+    },
+    "legacyBoard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "items"],
+      "properties": {
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/legacyItem" }
+        }
+      }
+    },
+    "legacyItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "state"],
+      "properties": {
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "state": { "$ref": "#/$defs/nonEmptyString" },
+        "note": { "type": "string" }
+      }
+    }
+  }
+}

@@ -129,3 +129,22 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 - Tests **82 → 89/89** locally. Live checks (reviewer read the code, did not
   run it): gray+stock inline in the legacy list, README snippet loads (exit 0),
   empty `sections:` error, rank-less custom state error.
+
+| 3 | [#7](https://github.com/tempometer/statuslight/issues/7) JSON Schema | `issue-7-json-schema` | [#9](https://github.com/tempometer/statuslight/pull/9) | 98/98 local | see below | see below | merge gate delegated to agent (tests+build) |
+
+## Run 3 — 2026-11-19, issue #7 (JSON Schema)
+
+- **Context**: owner decision 19.11 — StatusLight becomes a multi-language
+  format (Python primary, .NET reference renderer); the schema is the shared
+  contract. Merge gate changed: tests pass + builds ⇒ agent merges autonomously.
+- **Executed by**: AI agent, branch `issue-7-json-schema`, started 20:57 UTC.
+- **Steps**: `schema/statuslight.schema.json` (draft 2020-12, oneOf v2|legacy,
+  additionalProperties:false throughout, patterns for updated/date/color,
+  theme enum, tag maxLength 16) → SchemaTests validating both examples and
+  seven negative cases via JsonSchema.Net → README producer section.
+- **Gotcha found by tests**: untyped YAML→JSON conversion loses scalar types
+  (everything became strings, `integer` fields failed). Fixed with a
+  YamlStream-based converter applying standard YAML implicit typing (plain
+  scalars → number/bool/null; quoted → string) — matching what PyYAML's
+  safe_load hands to jsonschema. The schema itself stays strict.
+- **Local verification**: 98/98 (89 + 9 schema tests).
