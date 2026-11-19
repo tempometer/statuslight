@@ -6,7 +6,7 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 | Run | Issue | Branch | PR | Tests | CI | Wall clock | Human input |
 |-----|-------|--------|-----|-------|----|------------|-------------|
 | 1 | [#1](https://github.com/tempometer/statuslight/issues/1) MVP: YAML → HTML board | `issue-1-mvp-html-board` | [#2](https://github.com/tempometer/statuslight/pull/2) | 33/33 (CI) | ✅ green (3 runs) | ≈5 min to green CI; ≈2 h with 2 review rounds | wrote issue; 2 review rounds; merge approval |
-| 2 | [#5](https://github.com/tempometer/statuslight/issues/5) Boards v2 | `issue-5-boards-v2` | [#6](https://github.com/tempometer/statuslight/pull/6) | 69/69 local + CI | ✅ green, 21 s | ≈7 min (issue → green CI) | issue approved in chat ("ран A одразу"); review pending |
+| 2 | [#5](https://github.com/tempometer/statuslight/issues/5) Boards v2 | `issue-5-boards-v2` | [#6](https://github.com/tempometer/statuslight/pull/6) | 89/89 (CI) | ✅ green (4 runs) | issue→CI ≈7 min; 2 review rounds +1 day | issue in chat; 2 review rounds (10+10 findings, all fixed); merge delegated ("tests+build") |
 
 ## Run 1 — 2026-11-13, issue #1 (MVP)
 
@@ -68,9 +68,9 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 - **Local verification before push**: 69/69 tests; live render of
   `examples/traffic-board.yml` — rollup correct (mixed cards → worst state),
   queue/closed lanes present, `data-upd`/`data-stale-after` wired.
-- **CI result**: run 44389734524 — build + test green in 21 s.
-- **Timeline (UTC)**: issue 20:13 → pushed 20:19 → CI green ~20:20. **Issue → green CI ≈ 7 minutes.**
-- **Merge**: pending human review.
+- **CI result**: green across all four runs (21–51 s).
+- **Timeline (UTC)**: issue 18.11 20:13 → CI green 20:20; two review rounds fixed same day and next; **merged 19.11 20:56** (squash 6c81432, issue #5 auto-closed).
+- **Merge gate changed by owner (19.11)**: tests pass + builds → agent merges autonomously; final human review waived. Python code will be reviewed by an independent agent instead of the owner.
 
 ### Run 2 — review round (2026-11-18, same day)
 
