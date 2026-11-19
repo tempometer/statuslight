@@ -130,7 +130,7 @@ execution (branch, PR, CI), the timings, and what the human actually did.
   run it): gray+stock inline in the legacy list, README snippet loads (exit 0),
   empty `sections:` error, rank-less custom state error.
 
-| 3 | [#7](https://github.com/tempometer/statuslight/issues/7) JSON Schema | `issue-7-json-schema` | [#9](https://github.com/tempometer/statuslight/pull/9) | 98/98 local | see below | see below | merge gate delegated to agent (tests+build) |
+| 3 | [#7](https://github.com/tempometer/statuslight/issues/7) JSON Schema | `issue-7-json-schema` | [#9](https://github.com/tempometer/statuslight/pull/9) | 98/98 (CI) | ✅ green, 41 s | ≈7 min (issue → merge, autonomous) | merge gate delegated (tests+build) |
 
 ## Run 3 — 2026-11-19, issue #7 (JSON Schema)
 
@@ -147,4 +147,5 @@ execution (branch, PR, CI), the timings, and what the human actually did.
   YamlStream-based converter applying standard YAML implicit typing (plain
   scalars → number/bool/null; quoted → string) — matching what PyYAML's
   safe_load hands to jsonschema. The schema itself stays strict.
-- **Local verification**: 98/98 (89 + 9 schema tests).
+- **Local verification**: 98/98 (89 + 9 schema tests); CI green 41 s.
+- **Merge**: autonomous per delegated gate — squash (merged 21:03 UTC), issue #7 auto-closed.
