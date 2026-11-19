@@ -78,6 +78,14 @@ Try it:
 
     dotnet run --project src/StatusLight -- --input examples/traffic-board.yml --output board.html
 
+## Schema
+
+[`schema/statuslight.schema.json`](schema/statuslight.schema.json) is the machine-readable contract for the board format (JSON Schema, draft 2020-12; covers both the v2 board document and the legacy flat document). Producers can validate their YAML in CI without running any renderer — for example from Python:
+
+    python -c "import yaml,json,jsonschema; jsonschema.validate(yaml.safe_load(open('board.yml')), json.load(open('schema/statuslight.schema.json')))"
+
+Schema checks are **necessary, not sufficient**: the loaders additionally enforce the semantic rules listed in the schema description (rank on non-stock states, case-insensitive state keys, tag-requires-note, section state or rollup, link scheme allowlist).
+
 ## Status
 
 MVP delivered in [PR #2](https://github.com/tempometer/statuslight/pull/2) — the first
