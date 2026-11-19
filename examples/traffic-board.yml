@@ -1,0 +1,45 @@
+board:
+  title: Aurora Platform — traffic board
+  description: service streams, one card each
+  footer: "one fact per line · colour without a date is noise"
+  stale_after_hours: 48
+  theme: auto
+
+states:
+  green:  { label: "on plan" }
+  yellow: { label: "needs decision", rank: 1 }
+  red:    { label: "broken", rank: 2 }
+  gray:   { label: "parked" }
+  closed: { label: "done, with verdict" }
+
+sections:
+  - name: Payments
+    about: Payments platform — cards, SEPA, payouts
+    updated: "2026-11-18 09:12"
+    items:
+      - { name: API, state: green, note: v2.4.1 }
+      - { name: SEPA rail, state: yellow, note: upstream maintenance }
+      - { tag: LATENCY, note: "p99 stable at 340ms" }
+    next:
+      - rotate signing keys
+      - cut release 2.5
+    waiting_on: security review
+    links:
+      - { label: runbook, href: docs/runbook.md }
+
+  - name: Growth
+    about: Acquisition experiments — SEO, referrals, lifecycle email
+    updated: "2026-11-18 08:00"
+    stale_after_hours: 24
+    items:
+      - { name: Referral loop, state: green, note: 14% of signups }
+      - { name: SEO migration, state: red, note: ranking drop after URL rework }
+    next: undo canonical rewrite
+
+queue:
+  - { name: Legacy sync, note: waiting on vendor SDK }
+  - { name: SSO, note: parked until enterprise demand }
+
+closed:
+  - { name: Billing v1, verdict: replaced by Payments, date: "2026-11-01" }
+  - { name: Flash sale page, verdict: experiment ended, date: "2026-10-21" }

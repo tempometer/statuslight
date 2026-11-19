@@ -34,11 +34,13 @@ public sealed class BoardFileTests : IDisposable
         var board = BoardFile.Load(path);
 
         Assert.Equal("Deploy health", board.Title);
-        Assert.Equal(3, board.Items.Count);
-        Assert.Equal(new BoardItem("API", BoardState.Green, "v2.4.1 live"), board.Items[0]);
-        Assert.Equal(new BoardItem("Worker", BoardState.Yellow, "queue lag 4m"), board.Items[1]);
-        Assert.Equal(new BoardItem("Billing sync", BoardState.Red), board.Items[2]);
-        Assert.Null(board.Items[2].Note);
+        Assert.True(board.IsLegacyList);
+        var items = board.Sections[0].Items;
+        Assert.Equal(3, items.Count);
+        Assert.Equal(new BoardItem("API", States.Green, "v2.4.1 live"), items[0]);
+        Assert.Equal(new BoardItem("Worker", States.Yellow, "queue lag 4m"), items[1]);
+        Assert.Equal(new BoardItem("Billing sync", States.Red), items[2]);
+        Assert.Null(items[2].Note);
     }
 
     [Fact]
@@ -53,7 +55,7 @@ public sealed class BoardFileTests : IDisposable
 
         var board = BoardFile.Load(path);
 
-        Assert.Equal(BoardState.Green, board.Items[0].State);
+        Assert.Equal(States.Green, board.Sections[0].Items[0].State);
     }
 
     [Fact]
@@ -72,8 +74,9 @@ public sealed class BoardFileTests : IDisposable
 
         var board = BoardFile.Load(path);
 
-        Assert.Equal("spaced", board.Items[0].Note);
-        Assert.Null(board.Items[1].Note);
+        var items = board.Sections[0].Items;
+        Assert.Equal("spaced", items[0].Note);
+        Assert.Null(items[1].Note);
     }
 
     [Fact]
@@ -168,6 +171,16 @@ public sealed class BoardFileTests : IDisposable
     }
 
     [Fact]
+    public void Load_MalformedYaml_RejectedNotLeaked()
+    {
+        var path = WriteYaml("title: [unclosed");
+
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+
+        Assert.Contains("invalid content", ex.Message);
+    }
+
+    [Fact]
     public void Load_UnknownKey_RejectedNamesTheKey()
     {
         var path = WriteYaml("""
@@ -203,13 +216,32 @@ public sealed class BoardFileTests : IDisposable
     }
 
     [Fact]
-    public void Load_MalformedYaml_RejectedNotLeaked()
+    public void Load_LegacyRejectsV2TopLevelKeys()
     {
-        var path = WriteYaml("title: [unclosed");
+        var withQueue = WriteYaml("""
+            title: T
+            items:
+              - {name: A, state: green}
+            queue:
+              - { name: SSO }
+            """);
 
-        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(path));
+        var ex = Assert.Throws<BoardFileException>(() => BoardFile.Load(withQueue));
 
-        Assert.Contains("invalid content", ex.Message);
+        Assert.Contains("not both", ex.Message);
+
+        var withTag = WriteYaml("""
+            title: T
+            items:
+              - name: A
+                state: green
+                tag: RADAR
+                note: x
+            """);
+
+        var ex2 = Assert.Throws<BoardFileException>(() => BoardFile.Load(withTag));
+
+        Assert.Contains("items[0].tag", ex2.Message);
     }
 
     [Fact]

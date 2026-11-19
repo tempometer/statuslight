@@ -10,7 +10,7 @@ public sealed class RendererTests
     [Fact]
     public void Render_ContainsEscapedTitleInHeadAndBody()
     {
-        var board = new Board("<R&D> board", [new BoardItem("A", BoardState.Green)]);
+        var board = new Board("<R&D> board", [new BoardItem("A", States.Green)]);
 
         var html = Renderer.Render(board, GeneratedAt);
 
@@ -24,9 +24,9 @@ public sealed class RendererTests
     {
         var board = new Board("T", new List<BoardItem>
         {
-            new("API", BoardState.Green),
-            new("Worker", BoardState.Yellow, "lag"),
-            new("Billing", BoardState.Red),
+            new("API", States.Green),
+            new("Worker", States.Yellow, "lag"),
+            new("Billing", States.Red),
         });
 
         var html = Renderer.Render(board, GeneratedAt);
@@ -40,7 +40,7 @@ public sealed class RendererTests
     [Fact]
     public void Render_EscapesItemNameAndNote()
     {
-        var board = new Board("T", [new BoardItem("<script>alert(1)</script>", BoardState.Green, "a < b & c")]);
+        var board = new Board("T", [new BoardItem("<script>alert(1)</script>", States.Green, "a < b & c")]);
 
         var html = Renderer.Render(board, GeneratedAt);
 
@@ -54,9 +54,9 @@ public sealed class RendererTests
     {
         var board = new Board("T", new List<BoardItem>
         {
-            new("A", BoardState.Green),
-            new("B", BoardState.Yellow),
-            new("C", BoardState.Red),
+            new("A", States.Green),
+            new("B", States.Yellow),
+            new("C", States.Red),
         });
 
         var html = Renderer.Render(board, GeneratedAt);
@@ -73,7 +73,7 @@ public sealed class RendererTests
     [Fact]
     public void Render_HasViewportMetaTag()
     {
-        var board = new Board("T", [new BoardItem("A", BoardState.Green)]);
+        var board = new Board("T", [new BoardItem("A", States.Green)]);
 
         var html = Renderer.Render(board, GeneratedAt);
 
@@ -83,7 +83,7 @@ public sealed class RendererTests
     [Fact]
     public void Render_MultiLineNoteKeepsLineBreaks()
     {
-        var board = new Board("T", [new BoardItem("A", BoardState.Green, "line one\nline two")]);
+        var board = new Board("T", [new BoardItem("A", States.Green, "line one\nline two")]);
 
         var html = Renderer.Render(board, GeneratedAt);
 
@@ -94,7 +94,7 @@ public sealed class RendererTests
     [Fact]
     public void Render_FooterHasIso8601UtcTimestamp()
     {
-        var board = new Board("T", [new BoardItem("A", BoardState.Green)]);
+        var board = new Board("T", [new BoardItem("A", States.Green)]);
 
         var html = Renderer.Render(board, GeneratedAt);
 
@@ -106,8 +106,8 @@ public sealed class RendererTests
     {
         var board = new Board("T", new List<BoardItem>
         {
-            new("A", BoardState.Green, "has note"),
-            new("B", BoardState.Green),
+            new("A", States.Green, "has note"),
+            new("B", States.Green),
         });
 
         var html = Renderer.Render(board, GeneratedAt);
@@ -119,7 +119,7 @@ public sealed class RendererTests
     [Fact]
     public void Render_IsSelfContainedDocument()
     {
-        var board = new Board("T", [new BoardItem("A", BoardState.Green)]);
+        var board = new Board("T", [new BoardItem("A", States.Green)]);
 
         var html = Renderer.Render(board, GeneratedAt);
 
@@ -128,6 +128,45 @@ public sealed class RendererTests
         Assert.Contains("<style>", html);
         Assert.DoesNotContain("http://", html);
         Assert.DoesNotContain("https://", html);
+    }
+
+    [Fact]
+    public void Render_LegacyStockRow_IsUnchanged()
+    {
+        var board = new Board("T", [new BoardItem("A", States.Green)]);
+
+        var html = Renderer.Render(board, GeneratedAt);
+
+        // v0.1 output: decorative dot carries aria-hidden, colours come from classes alone
+        Assert.Contains("<span class=\"dot dot-green\" aria-hidden=\"true\"></span>", html);
+        Assert.DoesNotContain("style=\"background:", html);
+        Assert.DoesNotContain("style=\"color:", html);
+    }
+
+    [Fact]
+    public void Render_LegacyCustomState_UsesLabelAndInlineColour()
+    {
+        var parked = new StateInfo("gray", "parked", 0, "#8b5cf6", 3);
+        var board = new Board("T", [new BoardItem("A", parked)]);
+
+        var html = Renderer.Render(board, GeneratedAt);
+
+        Assert.Contains("<span class=\"dot dot-gray\" style=\"background:#8b5cf6\" aria-hidden=\"true\"></span>", html);
+        Assert.Contains("<span class=\"state st-gray\" style=\"color:#8b5cf6\">parked</span>", html);
+    }
+
+    [Fact]
+    public void Render_LegacyGrayWithStockColour_StillInlined()
+    {
+        // gray/closed are not part of the v0.1 trio: ListStyles has no classes for
+        // them, so even their stock colours must go inline (review round 2, #1)
+        var parked = new StateInfo("gray", "parked", 0, "#9ca3af", 3);
+        var board = new Board("T", [new BoardItem("A", parked)]);
+
+        var html = Renderer.Render(board, GeneratedAt);
+
+        Assert.Contains("style=\"background:#9ca3af\"", html);
+        Assert.Contains("style=\"color:#9ca3af\"", html);
     }
 
     private static int CountOccurrences(string haystack, string needle)

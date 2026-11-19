@@ -6,6 +6,7 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 | Run | Issue | Branch | PR | Tests | CI | Wall clock | Human input |
 |-----|-------|--------|-----|-------|----|------------|-------------|
 | 1 | [#1](https://github.com/tempometer/statuslight/issues/1) MVP: YAML → HTML board | `issue-1-mvp-html-board` | [#2](https://github.com/tempometer/statuslight/pull/2) | 33/33 (CI) | ✅ green (3 runs) | ≈5 min to green CI; ≈2 h with 2 review rounds | wrote issue; 2 review rounds; merge approval |
+| 2 | [#5](https://github.com/tempometer/statuslight/issues/5) Boards v2 | `issue-5-boards-v2` | [#6](https://github.com/tempometer/statuslight/pull/6) | 69/69 local + CI | ✅ green, 21 s | ≈7 min (issue → green CI) | issue approved in chat ("ран A одразу"); review pending |
 
 ## Run 1 — 2026-11-13, issue #1 (MVP)
 
@@ -46,3 +47,85 @@ execution (branch, PR, CI), the timings, and what the human actually did.
 - **Merge**: **squash-merged as 5ceac9b at 22:10 UTC** (issue #1 auto-closed),
   authorized by the human re-review. Follow-ups filed: #3 (human-readable
   unknown-key error), #4 (symlink/hardlink same-file detection).
+
+## Run 2 — 2026-11-18, issue #5 (Boards v2)
+
+- **Request**: issue #5 — universal traffic-light board: sections as cards,
+  custom state vocabulary (labels, ranks, colours), fact lines with tags,
+  links, queue/closed lanes, per-card `updated` with client-side staleness,
+  light/dark/auto theme; v0.1 flat schema stays byte-compatible.
+- **Executed by**: AI agent (ZCode session, GLM model), branch
+  `issue-5-boards-v2`. **Started**: 2026-11-18 20:13 UTC.
+- **Steps**: model (`StateInfo`/`Section`/`Board` with legacy constructor) →
+  v2 loader (states vocabulary, section/item/link/queue/closed validation,
+  rollup = worst item rank) → cards renderer (grid, tag chips, next steps,
+  links, queue/closed lanes, age + `⚠ stale` script, themed palettes) →
+  36 new tests (33 → **69/69**) → `examples/traffic-board.yml` + README.
+- **Mid-run fixes found by own tests**: lost v0.1 case-insensitive states in
+  the new `Resolve` (restored); tag-requires-note must precede the
+  name-or-note check; C# interpolated raw strings reject `{{` escapes
+  (block-style YAML in tests instead).
+- **Local verification before push**: 69/69 tests; live render of
+  `examples/traffic-board.yml` — rollup correct (mixed cards → worst state),
+  queue/closed lanes present, `data-upd`/`data-stale-after` wired.
+- **CI result**: run 44389734524 — build + test green in 21 s.
+- **Timeline (UTC)**: issue 20:13 → pushed 20:19 → CI green ~20:20. **Issue → green CI ≈ 7 minutes.**
+- **Merge**: pending human review.
+
+### Run 2 — review round (2026-11-18, same day)
+
+- **Human review**: 10 inline comments (2 blockers first). All 10 verified
+  against the code and fixed in the review-fix commit:
+  1. `theme: auto` emitted broken CSS (bare vars in `@media` + stray `}`) —
+     palette blocks rebuilt with proper `:root` selectors; test now asserts
+     the media-block selector and balanced braces
+  2. link schemes unvalidated — allowlist at load (http/https/mailto or
+     relative); `javascript:`/`data:`/`vbscript:` rejected with a named error
+  3. fact items dropped `name` — rendered as a bold lead-in; name-only facts OK
+  4. `state`+`tag` items lost the tag — chip now rendered in the traffic row
+  5. `updated` had no timezone — documented as UTC; renderer emits the exact
+     ISO instant (`data-upd`) + display string (`data-disp`); future
+     timestamps flagged `⚠` instead of clamped to `0h ago`
+  6. stock rank/colour lookup was case-sensitive while `Resolve` was not —
+     normalized
+  7. rollup ties broke alphabetically with a crowded rank 0 — `StateInfo.Order`
+     added; equal ranks tie-break by declaration order (best-first vocabulary)
+  8. legacy flat boards silently ignored v2 keys — `board`/`queue`/`closed`
+     top-level and per-item `tag` now rejected in the legacy path
+  9. legacy list output had drifted (aria-hidden dropped, inline styles added,
+     key instead of label) — restored byte-parity for stock states; custom
+     states get label + inline colour only when their colour differs
+  10. two run-1 review tests had been dropped in the suite rewrite — restored
+      (`unknown key`, `multiple documents`) + a section-board variant
+- Tests **69 → 82/82** locally; live checks: fixed `@media ... {:root{` CSS,
+  ISO-Z `data-upd`, `javascript:` link rejected with exit 1.
+
+### Run 2 — review round 2 (2026-11-19)
+
+- **Human re-review at 497515d**: all ten round-1 findings confirmed fixed,
+  "no blockers remain"; ten new, smaller findings (four marked fix-before-
+  merge). All ten fixed in the round-2 commit:
+  1. stock gray/closed rendered uncoloured in the legacy list (regression from
+     the parity fix) — inline styles now apply to everything except the v0.1
+     trio wearing stock colours; `IsPlainV01Stock` via `States.Stock`
+  2. custom states without `rank` silently tied with green — `rank` now
+     required for non-stock states
+  3. staleness compared rounded hours (up to 30 min late) — the threshold now
+     compares exact milliseconds; rounding is display-only
+  4. README v2 snippet failed to load — `board: { title: ... }` added;
+     snippet verified by loading it verbatim (exit 0)
+  5. card grid overflowed 360px phones — `minmax(min(24rem,100%),1fr)`
+  6. case-variant state keys could coexist and resolved arbitrarily —
+     case-insensitive duplicates rejected at load
+  7. schema routing keyed only on `sections` — now any v2 key (board/queue/
+     closed) routes to the v2 loader; empty `sections:` reports the right
+     error; stray legacy `title:` on a v2 board rejected
+  8. `.inote` lacked `white-space: pre-line` — multi-line notes keep breaks
+     in traffic rows
+  9. third copy of the stock colour table — `States.Stock` is the single
+     source; renderer keeps no local hex table
+  10. `Updated` re-parsed in the renderer — `Section.UpdatedUtc` (DateTime,
+      parsed once at load); renderer only formats, never parses
+- Tests **82 → 89/89** locally. Live checks (reviewer read the code, did not
+  run it): gray+stock inline in the legacy list, README snippet loads (exit 0),
+  empty `sections:` error, rank-less custom state error.
